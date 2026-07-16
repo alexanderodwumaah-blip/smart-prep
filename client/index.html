@@ -99,7 +99,7 @@ body{font-family:'Outfit',sans-serif;background:#0a0a0a;color:#e8e8e8;margin:0;o
         </div>
         <div id="form-signup" class="hidden space-y-3">
             <div><label class="block text-xs font-medium text-gray-400 mb-1">Full Name</label><input type="text" id="su-name" placeholder="Kwame Mensah" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition"></div>
-            <div><label class="block text-xs font-medium text-gray-400 mb-1">University</label><select id="su-uni" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-acc/50 transition appearance-none cursor-pointer"><option value="">Select...</option><option>Kwame Nkrumah University of Science and Technology (KNUST)</option><option>University of Ghana (Legon)</option><option>University of Cape Coast (UCC)</option><option>University of Mines and Technology (UMaT)</option><option>University of Development Studies (UDS)</option><option>University of Education, Winneba (UEW)</option><option>University of Professional Studies, Accra (UPSA)</option><option>Accra Technical University</option><option>Takoradi Technical University</option><option>Kumasi Technical University</option><option>Ho Technical University</option><option>Koforidua Technical University</option><option>Catholic University of Ghana</option><option>Methodist University College</option><option>Central University</option><option>Lancaster University Ghana</option><option>Regent University</option><option>All Nations University</option><option>Valley View University</option><option>Other</option></select></div>
+            <div><label class="block text-xs font-medium text-gray-400 mb-1">University</label><select id="su-uni" onchange="handleUniChange(this)" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-acc/50 transition appearance-none cursor-pointer"><option value="">Select...</option><option>University of Energy and Natural Resources (UENR)</option><option>Kwame Nkrumah University of Science and Technology (KNUST)</option><option>University of Ghana (Legon)</option><option>University of Cape Coast (UCC)</option><option>University of Mines and Technology (UMaT)</option><option>University of Development Studies (UDS)</option><option>University of Education, Winneba (UEW)</option><option>University of Professional Studies, Accra (UPSA)</option><option>Accra Technical University</option><option>Takoradi Technical University</option><option>Kumasi Technical University</option><option>Ho Technical University</option><option>Koforidua Technical University</option><option>Catholic University of Ghana</option><option>Methodist University College</option><option>Central University</option><option>Lancaster University Ghana</option><option>Regent University</option><option>All Nations University</option><option>Valley View University</option><option value="other">Other</option></select><input type="text" id="su-uni-other" placeholder="Type your university name" class="hidden mt-1.5 w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition"></div>
             <div><label class="block text-xs font-medium text-gray-400 mb-1">Program of Study</label><input type="text" id="su-prog" placeholder="e.g. BSc Electrical Engineering" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition"></div>
             <div><label class="block text-xs font-medium text-gray-400 mb-1">Email</label><input type="email" id="su-email" placeholder="you@example.com" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition"></div>
             <div><label class="block text-xs font-medium text-gray-400 mb-1">Password (min 6)</label><input type="password" id="su-pass" placeholder="••••••••" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition"></div>
@@ -116,8 +116,14 @@ body{font-family:'Outfit',sans-serif;background:#0a0a0a;color:#e8e8e8;margin:0;o
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <div class="sc-card"><div class="sc-n text-white" id="ds-sess">0</div><div class="sc-l">Interviews</div></div>
         <div class="sc-card"><div class="sc-n text-acc" id="ds-avg">—</div><div class="sc-l">Avg Score</div></div>
-        <div class="sc-card"><div class="sc-n text-ok" id="ds-best">—</div><div class="sc-l">Best</div></div>
-        <div class="sc-card"><div class="sc-n text-purple-400" id="ds-tests">0</div><div class="sc-l">Tests</div></div>
+        <div class="sc-card"><div class="sc-n text-ok" id="ds-best">—</div><div class="sc-l">Best Score</div></div>
+        <div class="sc-card"><div class="sc-n text-purple-400" id="ds-tests">0</div><div class="sc-l">Tests Done</div></div>
+    </div>
+    <!-- Readiness meter -->
+    <div id="readiness-wrap" class="hidden bg-card border border-bdr rounded-xl p-3">
+      <div class="flex items-center justify-between mb-2"><span class="text-xs font-semibold text-gray-400">Interview Readiness</span><span class="text-xs font-bold text-acc" id="readiness-pct">—</span></div>
+      <div class="bt"><div class="bf bg-acc" id="readiness-bar" style="width:0%"></div></div>
+      <p class="text-[10px] text-mut mt-1.5" id="readiness-tip">Complete interviews to unlock your readiness score.</p>
     </div>
     <!-- Scheduled -->
     <div id="sched-sec" class="hidden">
@@ -127,6 +133,11 @@ body{font-family:'Outfit',sans-serif;background:#0a0a0a;color:#e8e8e8;margin:0;o
     <div class="flex items-center justify-between"><h2 class="text-xs font-semibold text-gray-400">Score Trend</h2><button onclick="showScreen('setup')" class="bg-acc hover:bg-acc-h text-bg font-semibold px-3 py-1.5 rounded-lg text-xs transition"><i class="fa-solid fa-plus mr-1"></i>New Interview</button></div>
     <div class="bg-card border border-bdr rounded-xl p-3"><canvas id="trend-cv" width="600" height="80" class="w-full" style="max-height:80px"></canvas><p class="text-xs text-mut text-center mt-1" id="trend-empty">Complete interviews to see trends</p></div>
     <h2 class="text-xs font-semibold text-gray-400">Recent Sessions</h2>
+    <!-- Quick tips -->
+    <div id="tip-card" class="bg-card border border-bdr rounded-xl p-3 flex items-start gap-3">
+      <div class="w-8 h-8 rounded-lg bg-acc/10 border border-acc/20 flex items-center justify-center shrink-0"><i class="fa-solid fa-lightbulb text-acc text-xs"></i></div>
+      <div><p class="text-xs font-semibold text-gray-300 mb-0.5">Interview Tip</p><p class="text-[11px] text-mut leading-relaxed" id="tip-text">Loading tip...</p></div>
+    </div>
     <div class="bg-card border border-bdr rounded-xl overflow-hidden" id="dash-sessions"><div class="p-5 text-center text-xs text-mut">No interviews yet.</div></div>
 </div>
 </div>
@@ -199,6 +210,19 @@ body{font-family:'Outfit',sans-serif;background:#0a0a0a;color:#e8e8e8;margin:0;o
     <div id="pw-srv" class="pw" style="display:none;border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.08)"><i class="fa-solid fa-triangle-exclamation mt-0.5 shrink-0" style="color:#f59e0b"></i><span style="color:#fde68a">Backend offline. CV upload disabled. Run <code class="bg-black/40 px-1 rounded text-[10px]">npm run dev</code></span></div>
     <div class="bg-card border border-bdr rounded-2xl p-4 space-y-3">
         <h2 class="text-base font-semibold">New Interview</h2>
+        <!-- Duration info banner -->
+        <div class="flex items-center gap-2 p-2.5 bg-elev/60 border border-bdr/60 rounded-lg">
+          <i class="fa-solid fa-clock text-acc text-xs shrink-0"></i>
+          <div class="flex-1"><span class="text-[11px] text-gray-300 font-medium" id="dur-label">8 questions · ~15–20 min</span><p class="text-[10px] text-mut mt-0.5">Depends on how much you elaborate. Real interviews are 20–45 min.</p></div>
+        </div>
+        <!-- Question count -->
+        <div><label class="block text-xs font-medium text-gray-400 mb-1.5">Number of Questions</label>
+        <div class="flex gap-2" id="qcount-sel">
+          <button class="flex-1 py-1.5 rounded-lg text-xs font-medium border border-bdr bg-elev text-mut transition hover:border-acc/40" data-q="5">5 <span class="block text-[9px] text-mut/70">~8–10 min</span></button>
+          <button class="flex-1 py-1.5 rounded-lg text-xs font-medium border border-acc bg-acc/10 text-acc transition" data-q="8">8 <span class="block text-[9px] text-acc/70">~15–20 min</span></button>
+          <button class="flex-1 py-1.5 rounded-lg text-xs font-medium border border-bdr bg-elev text-mut transition hover:border-acc/40" data-q="10">10 <span class="block text-[9px] text-mut/70">~20–30 min</span></button>
+          <button class="flex-1 py-1.5 rounded-lg text-xs font-medium border border-bdr bg-elev text-mut transition hover:border-acc/40" data-q="12">12 <span class="block text-[9px] text-mut/70">~25–35 min</span></button>
+        </div></div>
         <div><label class="block text-xs font-medium text-gray-400 mb-1">Engineering Field</label>
         <select id="inp-field" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-acc/50 transition appearance-none cursor-pointer">
             <option value="">Select...</option><option value="electrical">Electrical</option><option value="mechanical">Mechanical</option><option value="mining">Mining</option><option value="civil">Civil</option><option value="computer">Computer</option><option value="chemical">Chemical</option><option value="petroleum">Petroleum</option><option value="aerospace">Aerospace</option><option value="agricultural">Agricultural</option><option value="biomedical">Biomedical</option><option value="geomatic">Geomatic</option><option value="materials">Materials</option>

@@ -7,7 +7,7 @@ const RENDER_URL='https://smart-prep-x8ce.onrender.com';
 const S={
   screen:'auth',user:null,profile:null,name:'',field:'',fieldLabel:'',
   mode:'male',cvData:null,company:'',scheduleMode:false,
-  conversation:[],currentQ:0,totalQ:8,phase:'idle',
+  conversation:[],currentQ:0,totalQ:8,questionArc:[],phase:'idle',
   isListening:false,isSpeaking:false,serverUp:false,ending:false,
   micStream:null,audioCtx:null,analyser:null,animId:null,
   silenceT:null,maxT:null,finalTxt:'',interimTxt:'',
@@ -29,6 +29,29 @@ const PIV={project:"Tell me about a significant engineering project you have wor
 const SCN={electrical:["A three-phase motor keeps tripping its circuit breaker shortly after startup. Walk me through your diagnostic approach step by step.","A client wants to upgrade their facility from single-phase to three-phase power supply. What key factors do you assess?"],mechanical:["A centrifugal pump in a processing plant is vibrating excessively. How would you systematically investigate this problem?","You need to select a bearing for a high-speed rotating shaft. What factors guide your selection?"],mining:["You are asked to assess slope stability at a new open-pit site. Walk me through your approach.","After a blast, there is significantly more flyrock than anticipated. How do you investigate and prevent recurrence?"],civil:["You inspect a freshly poured concrete structure and notice surface cracking. What are your immediate steps?","A newly constructed road has serious drainage problems after the first rainy season. How do you diagnose and fix this?"],computer:["An embedded system is behaving erratically in the field but works fine in the lab. How do you debug this?","You need to connect a network of sensors across a factory floor to a central monitoring dashboard. Describe your architecture."],chemical:["A reactor's yield has dropped unexpectedly over three weeks. How do you troubleshoot this systematically?","You are selecting materials for a new piping system handling corrosive chemicals. What considerations guide your decision?"],petroleum:["A production well's output rate has dropped significantly over two months. What steps do you take to investigate?","How would you approach minimizing the environmental impact of operations at a production site?"],aerospace:["A structural component fails at 80% of its expected load during testing. How do you investigate the failure?","You are selecting a composite material for an interior aircraft panel. What properties do you prioritize?"],agricultural:["An irrigation system is underperforming and crop yields are below expectation. How do you assess and fix this?","Describe how you would design an intervention to reduce post-harvest losses for a specific staple crop."],biomedical:["A medical device fails sterilization validation. What are your next steps?","You are choosing a biomaterial for a long-term implant. What biocompatibility and mechanical properties are critical?"],geomatic:["Your GPS survey is giving inconsistent results across a site. What do you check and how do you resolve it?","You need to produce a topographic map of a site with dense forest cover. What methods and tools do you use?"],materials:["A metal component in a machine is failing prematurely through fracture. How do you investigate the failure mode?","You need to specify a heat treatment process for a steel shaft to achieve high surface hardness with a tough core. What process do you recommend?"]};
 const FTQ={electrical:["Explain the difference between a relay and a contactor, and when you would use each.","How would you design the power distribution layout for a small manufacturing facility?"],mechanical:["What factors do you consider when selecting a bearing for a specific application?","Compare soldering, brazing, and welding — when is each technique most appropriate?"],mining:["What are the key factors that determine open-pit slope stability?","Describe the main stages of mineral processing after ore is extracted."],civil:["What tests would you specify for concrete before it is used in a structural application?","Explain the difference between shallow and deep foundations and when each is used."],computer:["What is the fundamental difference between a microprocessor and a microcontroller?","Walk me through your approach to debugging a malfunctioning embedded system."],chemical:["Compare batch and continuous processing — what are the trade-offs?","Name three types of heat exchangers and describe the application each is suited for."],petroleum:["Explain the difference between upstream, midstream, and downstream in the oil and gas industry.","What is enhanced oil recovery, and what are the main techniques used?"],aerospace:["Name and explain the four fundamental forces acting on an aircraft in flight.","What are the key considerations when certifying a new aircraft design for airworthiness?"],agricultural:["How would you design an irrigation scheme for a 10-hectare smallholder farm?","What post-harvest technologies are most effective for reducing losses in cereal crops?"],biomedical:["What key considerations guide the design and development of a medical device?","Explain the concept of biocompatibility and why it matters for implantable devices."],geomatic:["How does differential GPS improve the accuracy of a survey?","What are the main sources of error in a large-scale surveying project and how do you mitigate them?"],materials:["Explain the factors you consider when selecting a material for a structural application.","What is the purpose of annealing and how does it change the properties of a metal?"]};
 const Q_ARC=['intro','cv_based','technical','behavioral','cv_based','technical','scenario','closing'];
+
+// ===== DYNAMIC QUESTION ARC — shuffled each session =====
+const Q_POOL={
+  intro:['intro'],
+  behavioral:['behavioral','behavioral','behavioral'],
+  technical:['technical','technical','technical'],
+  cv:['cv_based','cv_based'],
+  scenario:['scenario','scenario'],
+  closing:['closing']
+};
+function buildArc(total){
+  // Always: intro first, closing last
+  // Middle: shuffle a balanced mix of behavioral, technical, cv, scenario
+  const mid=[];
+  const slots={behavioral:Math.round(total*0.25),technical:Math.round(total*0.30),cv:Math.round(total*0.25),scenario:Math.round(total*0.10)};
+  let filled=0;
+  for(const[k,n]of Object.entries(slots)){for(let i=0;i<n&&filled<total-2;i++){mid.push(k==='cv'?'cv_based':k);filled++}}
+  // Shuffle middle
+  for(let i=mid.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[mid[i],mid[j]]=[mid[j],mid[i]]}
+  // Fill remainder with followup
+  while(mid.length<total-2)mid.push('followup');
+  return['intro',...mid.slice(0,total-2),'closing'];
+}
 
 const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
@@ -87,7 +110,10 @@ async function handleLogin(){
 
 async function handleSignup(){
   const btn=$('#btn-su');
-  const n=$('#su-name').value.trim(),u=$('#su-uni').value,pr=$('#su-prog').value.trim(),e=$('#su-email').value.trim(),p=$('#su-pass').value;
+  const n=$('#su-name').value.trim();
+  let u=$('#su-uni').value;
+  if(u==='other'){u=$('#su-uni-other')?.value.trim()||'Other';}
+  const pr=$('#su-prog').value.trim(),e=$('#su-email').value.trim(),p=$('#su-pass').value;
   if(!n||!e||!p){showAE('Name, email, and password required.');return}
   if(p.length<6){showAE('Password must be at least 6 characters.');return}
   $(`#auth-err`).classList.add('hidden');
@@ -95,15 +121,20 @@ async function handleSignup(){
   const{data,error}=await sb.auth.signUp({email:e,password:p,options:{data:{name:n,university:u,program:pr}}});
   if(btn){btn.disabled=false;btn.textContent='Create Account'}
   if(error){showAE(error.message);return}
-  // Clear form
   ['su-name','su-prog','su-email','su-pass'].forEach(id=>{const el=$(`#${id}`);if(el)el.value=''});
-  $(`#su-uni`).value='';
+  $(`#su-uni`).value='';$('#su-uni-other')?.classList.add('hidden');
   if(data?.user&&data.session){toast('Welcome! Account created.','ok')}
   else{toast('Account created! Check your email to verify, then sign in.','ok');switchAuthTab('login')}
 }
 
 function showAE(m){const e=$(`#auth-err`);e.innerHTML=`<i class="fa-solid fa-circle-exclamation mt-0.5 shrink-0"></i><span>${esc(m)}</span>`;e.classList.remove('hidden')}
 async function handleLogout(){await sb.auth.signOut();S.user=null;S.profile=null;S.sessions=[];showScreen('auth')}
+
+function handleUniChange(sel){
+  const other=$('#su-uni-other');
+  if(sel.value==='other'){other.classList.remove('hidden');other.focus()}
+  else other.classList.add('hidden');
+}
 
 // ===== TTS — richer voice, sentence-aware pacing =====
 const tts={
@@ -344,6 +375,9 @@ async function loadDashboard(){
   $(`#ds-tests`).textContent=comps?.length||0;
   // FIX: show 8 most recent in chronological order
   drawTrend(scores.slice(0,8).reverse());
+  // Readiness meter
+  updateReadiness(scores,(sessions||[]).filter(s=>s.status==='completed').length,comps?.length||0);
+  showDailyTip();
   // Scheduled sessions
   const sched=(sessions||[]).filter(s=>s.status==='scheduled'&&new Date(s.scheduled_for)>new Date());
   const sec=$('#sched-sec'),list=$('#sched-list');
@@ -486,9 +520,10 @@ function detectTopics(txt){
 }
 function countFieldKeywords(txt,field){return(FK[field]||[]).filter(k=>txt.toLowerCase().includes(k)).length}
 function fallbackQuestion(answer,field,iv,qi){
+  const arc=S.questionArc||buildArc(S.totalQ);
   const topics=detectTopics(answer);
   const asked=S.conversation.filter(c=>c.role==='student').flatMap(c=>detectTopics(c.text));
-  const qt=Q_ARC[qi]||'followup';
+  const qt=arc[qi]||'followup';
   if(qt==='cv_based'&&S.cvData){
     if(S.cvData.projects?.length)return`Looking at your CV, I see you worked on: "${S.cvData.projects[0].substring(0,80)}". Can you walk me through that in more detail?`;
     if(S.cvData.skills?.length)return`Your CV mentions ${S.cvData.skills.slice(0,3).join(', ')}. Which of those skills are you most confident applying in a professional setting?`;
@@ -573,15 +608,16 @@ function getCurrentInterviewer(){
 async function startInt(){
   if(!S.field){toast('Please select an engineering field.','err');return}
   S.name=S.profile?.name||'Student';S.company=$('#inp-company')?.value.trim()||'';
-  // Refresh server status before starting
   await apiHealth();
-  S.conversation=[];S.currentQ=0;S.teamIdx=0;S.totalQ=8;S.ending=false;S.currentSessionId=null;
+  S.conversation=[];S.currentQ=0;S.teamIdx=0;S.ending=false;S.currentSessionId=null;
+  // Use selected question count and build a fresh randomized arc
+  S.totalQ=parseInt($('#qcount-sel .border-acc')?.dataset.q||'8');
+  S.questionArc=buildArc(S.totalQ);
   $(`#transcript`).innerHTML='';updateProgress();showScreen('interview');
   $(`#d-field`).textContent=S.fieldLabel;$(`#d-eng`).textContent=S.serverUp?'LLM':'Built-in';
   S.currentIV=getCurrentInterviewer();
-  // Create session record
   if(S.user){
-    const{data:sess}=await sb.from('interview_sessions').insert({user_id:S.user.id,field:S.field,field_label:S.fieldLabel,target_company:S.company||null,interviewer_mode:S.mode,total_questions:8,status:'active'}).select('id').single();
+    const{data:sess}=await sb.from('interview_sessions').insert({user_id:S.user.id,field:S.field,field_label:S.fieldLabel,target_company:S.company||null,interviewer_mode:S.mode,total_questions:S.totalQ,status:'active'}).select('id').single();
     if(sess)S.currentSessionId=sess.id;
   }
   await beginInterview();
@@ -646,7 +682,7 @@ async function processAnswer(text){
   if(S.mode==='team'&&S.currentQ%2===0){S.teamIdx++;S.currentIV=getCurrentInterviewer();$(`#d-iname`).textContent=S.currentIV.name+' — '+S.currentIV.role;$(`#d-iname`).style.color=S.currentIV.color||'#888'}
   let question=null;
   if(S.serverUp){
-    try{question=await apiQuestion({conversation:S.conversation,field:S.field,fieldLabel:S.fieldLabel,name:S.name,cvData:S.cvData,interviewer:S.currentIV,currentQ:S.currentQ,totalQ:S.totalQ})}
+    try{question=await apiQuestion({conversation:S.conversation,field:S.field,fieldLabel:S.fieldLabel,name:S.name,cvData:S.cvData,interviewer:S.currentIV,currentQ:S.currentQ,totalQ:S.totalQ,questionArc:S.questionArc})}
     catch(e){console.warn('LLM question failed, using fallback')}
   }
   if(!question)question=fallbackQuestion(text,S.field,S.currentIV,S.currentQ);
@@ -711,6 +747,44 @@ async function handleCV(file){
   }else{$(`#cv-wc`).textContent='Server offline — CV not parsed';S.cvData=null}
 }
 
+// ===== READINESS METER =====
+const TIPS=[
+  "Use the STAR method: Situation → Task → Action → Result. It gives structure to every behavioral answer.",
+  "Always link your answers back to the specific role or field. Generic answers score lower than specific ones.",
+  "It's fine to take 2–3 seconds to think before answering. Silence is better than rambling.",
+  "Technical questions test reasoning, not memory. Talk through your thought process even if you're unsure.",
+  "Mention your final year project or industrial attachment — interviewers love concrete examples.",
+  "Show enthusiasm for national service. Companies want people who are eager to contribute, not just passing through.",
+  "Quantify where possible: 'reduced assembly time by 30%' is stronger than 'made it faster'.",
+  "Research the company you're targeting. One specific mention shows genuine interest.",
+  "Body language matters even on video — sit upright, look at the camera, and speak clearly.",
+  "Close strongly: 'I'm excited about the opportunity and confident I can contribute to your team' leaves a great impression.",
+  "If you don't know something technical, say 'I haven't encountered that specifically, but here's how I'd approach it' — shows problem-solving mindset.",
+  "Ghana's engineering sector needs people who can bridge theory and practical field conditions. Show that awareness.",
+];
+function updateReadiness(scores,sessCount,testCount){
+  const wrap=$('#readiness-wrap');if(!wrap)return;
+  if(!sessCount){wrap.classList.add('hidden');return}
+  wrap.classList.remove('hidden');
+  const avgScore=scores.length?scores.reduce((a,b)=>a+b,0)/scores.length:0;
+  const consistency=scores.length>1?Math.max(0,100-(Math.max(...scores)-Math.min(...scores))):50;
+  const improvement=scores.length>2&&scores[scores.length-1]>scores[0]?15:0;
+  const testBonus=Math.min(20,testCount*5);
+  const readiness=Math.round(Math.min(100,avgScore*0.55+consistency*0.25+improvement+testBonus*0.20));
+  $('#readiness-pct').textContent=readiness+'%';
+  const bar=$('#readiness-bar');bar.style.width=readiness+'%';
+  bar.style.background=readiness>=75?'#22c55e':readiness>=50?'#e8a023':'#ef4444';
+  const tips=[readiness<40?'Complete more practice sessions to improve your readiness.':readiness<60?'Good start. Focus on technical depth and using the STAR method.':readiness<80?'You\'re preparing well. Work on consistency across sessions.':'Excellent! You\'re showing strong interview readiness.'];
+  if(scores.length&&avgScore<60)tips.push(' Aim to average above 60% before your real interview.');
+  $('#readiness-tip').textContent=tips.join('');
+}
+function showDailyTip(){
+  const el=$('#tip-text');if(!el)return;
+  // Rotate tip daily using day of year as seed
+  const d=new Date();const dayIdx=(d.getFullYear()*365+d.getMonth()*31+d.getDate())%TIPS.length;
+  el.textContent=TIPS[dayIdx];
+}
+
 // ===== EVENTS =====
 function initEvents(){
   switchAuthTab('login');
@@ -719,6 +793,13 @@ function initEvents(){
   // Field selection enables start button
   const fieldSel=$('#inp-field'),startBtn=$('#btn-start');
   fieldSel.addEventListener('change',()=>{startBtn.disabled=!fieldSel.value;S.field=fieldSel.value;S.fieldLabel=FL[S.field]||S.field});
+  // Question count selector
+  $$('#qcount-sel button').forEach(btn=>btn.addEventListener('click',()=>{
+    $$('#qcount-sel button').forEach(b=>{b.className='flex-1 py-1.5 rounded-lg text-xs font-medium border border-bdr bg-elev text-mut transition hover:border-acc/40'});
+    btn.className='flex-1 py-1.5 rounded-lg text-xs font-medium border border-acc bg-acc/10 text-acc transition';
+    const q=parseInt(btn.dataset.q);const mins={5:'~8–10 min',8:'~15–20 min',10:'~20–30 min',12:'~25–35 min'};
+    const dl=$('#dur-label');if(dl)dl.textContent=`${q} questions · ${mins[q]||'~20 min'}`;
+  }));
   startBtn.addEventListener('click',startInt);
   $(`#btn-schedule`).addEventListener('click',scheduleInterview);
   // CV upload
