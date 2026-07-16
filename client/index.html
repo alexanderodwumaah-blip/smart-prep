@@ -100,7 +100,108 @@ body{font-family:'Outfit',sans-serif;background:#0a0a0a;color:#e8e8e8;margin:0;o
         <div id="form-signup" class="hidden space-y-3">
             <div><label class="block text-xs font-medium text-gray-400 mb-1">Full Name</label><input type="text" id="su-name" placeholder="Kwame Mensah" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition"></div>
             <div><label class="block text-xs font-medium text-gray-400 mb-1">University</label><select id="su-uni" onchange="handleUniChange(this)" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-acc/50 transition appearance-none cursor-pointer"><option value="">Select...</option><option>University of Energy and Natural Resources (UENR)</option><option>Kwame Nkrumah University of Science and Technology (KNUST)</option><option>University of Ghana (Legon)</option><option>University of Cape Coast (UCC)</option><option>University of Mines and Technology (UMaT)</option><option>University of Development Studies (UDS)</option><option>University of Education, Winneba (UEW)</option><option>University of Professional Studies, Accra (UPSA)</option><option>Accra Technical University</option><option>Takoradi Technical University</option><option>Kumasi Technical University</option><option>Ho Technical University</option><option>Koforidua Technical University</option><option>Catholic University of Ghana</option><option>Methodist University College</option><option>Central University</option><option>Lancaster University Ghana</option><option>Regent University</option><option>All Nations University</option><option>Valley View University</option><option value="other">Other</option></select><input type="text" id="su-uni-other" placeholder="Type your university name" class="hidden mt-1.5 w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition"></div>
-            <div><label class="block text-xs font-medium text-gray-400 mb-1">Program of Study</label><input type="text" id="su-prog" placeholder="e.g. BSc Electrical Engineering" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition"></div>
+            <div>
+              <label class="block text-xs font-medium text-gray-400 mb-1">Program of Study</label>
+              <select id="su-prog" onchange="handleProgChange(this)" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-acc/50 transition appearance-none cursor-pointer">
+                <option value="">Select your program...</option>
+                <optgroup label="⚡ Engineering — Electrical / Electronic / Energy">
+                  <option value="BSc Electrical Engineering|electrical">BSc Electrical Engineering</option>
+                  <option value="BSc Electronic Engineering|electrical">BSc Electronic Engineering</option>
+                  <option value="BSc Electrical &amp; Electronic Engineering|electrical">BSc Electrical &amp; Electronic Engineering</option>
+                  <option value="BSc Renewable Energy Engineering|electrical">BSc Renewable Energy Engineering</option>
+                  <option value="BSc Energy Systems Engineering|electrical">BSc Energy Systems Engineering</option>
+                  <option value="BSc Power Systems Engineering|electrical">BSc Power Systems Engineering</option>
+                </optgroup>
+                <optgroup label="💻 Engineering — Computer / IT">
+                  <option value="BSc Computer Engineering|computer">BSc Computer Engineering</option>
+                  <option value="BSc Computer Science|computer">BSc Computer Science</option>
+                  <option value="BSc Information Technology|computer">BSc Information Technology</option>
+                  <option value="Diploma in Information Technology|computer">Diploma in Information Technology</option>
+                  <option value="BSc Telecommunications Engineering|computer">BSc Telecommunications Engineering</option>
+                </optgroup>
+                <optgroup label="⚙️ Engineering — Mechanical / Industrial">
+                  <option value="BSc Mechanical Engineering|mechanical">BSc Mechanical Engineering</option>
+                  <option value="BSc Industrial Engineering|mechanical">BSc Industrial Engineering</option>
+                  <option value="BSc Manufacturing Engineering|mechanical">BSc Manufacturing Engineering</option>
+                  <option value="BSc Automotive Engineering|mechanical">BSc Automotive Engineering</option>
+                  <option value="BSc Marine Engineering|mechanical">BSc Marine Engineering</option>
+                  <option value="BSc Aerospace Engineering|aerospace">BSc Aerospace Engineering</option>
+                </optgroup>
+                <optgroup label="🏗️ Engineering — Civil / Structural">
+                  <option value="BSc Civil Engineering|civil">BSc Civil Engineering</option>
+                  <option value="BSc Structural Engineering|civil">BSc Structural Engineering</option>
+                  <option value="BSc Construction Engineering|civil">BSc Construction Engineering</option>
+                  <option value="BSc Urban Engineering|civil">BSc Urban Engineering</option>
+                  <option value="BSc Water Resources Engineering|civil">BSc Water Resources Engineering</option>
+                </optgroup>
+                <optgroup label="⛏️ Engineering — Mining / Geological">
+                  <option value="BSc Mining Engineering|mining">BSc Mining Engineering</option>
+                  <option value="BSc Sustainable Mining|mining">BSc Sustainable Mining</option>
+                  <option value="BSc Urban Mining|mining">BSc Urban Mining</option>
+                  <option value="BSc Geological Engineering|geomatic">BSc Geological Engineering</option>
+                  <option value="BSc Geomatics Engineering|geomatic">BSc Geomatics Engineering</option>
+                  <option value="BSc Geomatic Engineering|geomatic">BSc Geomatic Engineering</option>
+                </optgroup>
+                <optgroup label="🌱 Engineering — Agricultural / Environmental">
+                  <option value="BSc Agricultural Engineering|agricultural">BSc Agricultural Engineering</option>
+                  <option value="BSc Environmental Engineering|agricultural">BSc Environmental Engineering</option>
+                  <option value="BSc Food Science &amp; Technology|agricultural">BSc Food Science &amp; Technology</option>
+                  <option value="BSc Natural Resource Management|agricultural">BSc Natural Resource Management</option>
+                </optgroup>
+                <optgroup label="🧪 Engineering — Chemical / Petroleum">
+                  <option value="BSc Chemical Engineering|chemical">BSc Chemical Engineering</option>
+                  <option value="BSc Petrochemical Engineering|petroleum">BSc Petrochemical Engineering</option>
+                  <option value="BSc Petroleum Engineering|petroleum">BSc Petroleum Engineering</option>
+                  <option value="BSc Process Engineering|chemical">BSc Process Engineering</option>
+                </optgroup>
+                <optgroup label="🩺 Engineering — Biomedical / Materials">
+                  <option value="BSc Biomedical Engineering|biomedical">BSc Biomedical Engineering</option>
+                  <option value="BSc Materials Engineering|materials">BSc Materials Engineering</option>
+                  <option value="BSc Metallurgical Engineering|materials">BSc Metallurgical Engineering</option>
+                </optgroup>
+                <optgroup label="🏥 Health Sciences">
+                  <option value="BSc Nursing|health">BSc Nursing</option>
+                  <option value="Diploma in Nursing|health">Diploma in Nursing</option>
+                  <option value="BSc Medical Laboratory Science|health">BSc Medical Laboratory Science</option>
+                  <option value="BSc Pharmacy|health">BSc Pharmacy</option>
+                  <option value="BSc Public Health|health">BSc Public Health</option>
+                  <option value="BSc Biological Science|health">BSc Biological Science</option>
+                  <option value="BSc Chemistry|health">BSc Chemistry</option>
+                </optgroup>
+                <optgroup label="📊 Business / Management">
+                  <option value="BSc Accounting|business">BSc Accounting</option>
+                  <option value="BSc Economics|business">BSc Economics</option>
+                  <option value="BSc Business Administration|business">BSc Business Administration</option>
+                  <option value="BSc Entrepreneurship|business">BSc Entrepreneurship</option>
+                  <option value="BSc Hospitality Management|business">BSc Hospitality Management</option>
+                  <option value="BSc Marketing|business">BSc Marketing</option>
+                </optgroup>
+                <optgroup label="🌍 Environment / Agriculture / Science">
+                  <option value="BSc Agriculture|agricultural">BSc Agriculture</option>
+                  <option value="BSc Climate Science|agricultural">BSc Climate Science</option>
+                  <option value="BSc Environmental Science|agricultural">BSc Environmental Science</option>
+                  <option value="BSc Earth Science|geomatic">BSc Earth Science</option>
+                </optgroup>
+                <optgroup label="🔒 Safety / Disaster Management">
+                  <option value="BSc Fire Safety &amp; Disaster Management|safety">BSc Fire Safety &amp; Disaster Management</option>
+                  <option value="BSc Occupational Health &amp; Safety|safety">BSc Occupational Health &amp; Safety</option>
+                </optgroup>
+                <optgroup label="📚 Other">
+                  <option value="other|other">Other (specify below)</option>
+                </optgroup>
+              </select>
+              <input type="text" id="su-prog-other" placeholder="Type your program e.g. BSc Physics" class="hidden mt-1.5 w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition">
+            </div>
+            <!-- Internship / attachment experience -->
+            <div>
+              <label class="block text-xs font-medium text-gray-400 mb-1">Industrial Attachment / Internship <span class="text-mut font-normal">(optional)</span></label>
+              <select id="su-intern-yn" onchange="handleInternChange(this)" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-acc/50 transition appearance-none cursor-pointer">
+                <option value="">Have you done any? Select...</option>
+                <option value="yes">Yes — I've done industrial attachment or internship</option>
+                <option value="no">No — not yet</option>
+              </select>
+              <textarea id="su-intern-detail" rows="2" placeholder="Where did you intern, what did you do, and for how long? e.g. VRA, 3 months, electrical maintenance" class="hidden mt-1.5 w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 resize-none transition"></textarea>
+            </div>
             <div><label class="block text-xs font-medium text-gray-400 mb-1">Email</label><input type="email" id="su-email" placeholder="you@example.com" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition"></div>
             <div><label class="block text-xs font-medium text-gray-400 mb-1">Password (min 6)</label><input type="password" id="su-pass" placeholder="••••••••" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition"></div>
             <button onclick="handleSignup()" id="btn-su" class="w-full bg-acc hover:bg-acc-h text-bg font-semibold py-2.5 rounded-xl text-sm transition">Create Account</button>

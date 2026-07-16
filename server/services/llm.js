@@ -21,10 +21,24 @@ async function callLLM(messages, temperature = 0.82, maxTokens = 320) {
 async function generateQuestion({
   conversation, field, fieldLabel, name, cvData,
   interviewer, currentQ, totalQ, questionArc,
+  program, internshipInfo, hasInternship,
 }) {
   const history = conversation
     .map(c => `${c.role === 'ai' ? (c.interviewer || 'Interviewer') : name}: ${c.text}`)
     .join('\n');
+
+  // Rich student context — the more the LLM knows, the more tailored the questions
+  let studentCtx = `Student: ${name}`;
+  if (program) studentCtx += `, studying ${program}`;
+  if (fieldLabel) studentCtx += ` (${fieldLabel})`;
+  studentCtx += ', from a Ghanaian university.';
+  if (hasInternship && internshipInfo) {
+    studentCtx += ` Industrial attachment/internship: ${internshipInfo}.`;
+  } else if (hasInternship) {
+    studentCtx += ' Has done industrial attachment or internship.';
+  } else {
+    studentCtx += ' Has NOT yet done industrial attachment.';
+  }
 
   let cvContext = '';
   if (cvData) {
@@ -38,40 +52,51 @@ async function generateQuestion({
   const arc = Array.isArray(questionArc) ? questionArc : [];
   const qType = arc[currentQ] ?? (currentQ === 0 ? 'intro' : currentQ >= totalQ - 1 ? 'closing' : 'followup');
 
+  const alreadyAskedInternship = history.toLowerCase().includes('attachment') || history.toLowerCase().includes('internship');
+
   const typeGuide = {
-    intro: `Warmly open the interview. Ask the student to introduce themselves. Keep it welcoming and natural — like a real interviewer settling in.`,
+    intro: `Warmly open the interview. Ask them to introduce themselves. Sound welcoming and professional.`,
     cv_based: cvData
-      ? `Reference ONE specific item from their CV (a named project, listed skill, or work experience). Ask them to walk you through it — what they did, what they learned, what challenges they faced.`
-      : `Ask about their most meaningful engineering project or any industrial attachment they've done.`,
-    technical: `Ask ONE focused, practical ${fieldLabel} technical question pitched at a fresh graduate level. Avoid pure textbook recall — frame it as something they'd actually encounter on the job.`,
-    behavioral: `Ask a behavioral question about a real situation — teamwork, handling conflict, leadership, or overcoming failure. Use implicit STAR framing without naming the method.`,
-    scenario: `Present a realistic ${fieldLabel} field scenario — a piece of equipment failing, a design trade-off, a site problem — and ask how they'd handle it step by step.`,
-    followup: `Ask a sharp, intelligent follow-up to their last answer. Probe for more detail, challenge a vague point, or ask for a concrete example of something they claimed.`,
-    closing: `Ask about their motivation for pursuing national service, their career goals, or what they specifically hope to contribute to the industry.`,
+      ? `Reference ONE specific item from their CV — a named project, listed skill, or work experience. Ask them to walk through it in detail.`
+      : (hasInternship && internshipInfo && !alreadyAskedInternship)
+        ? `Ask specifically about their industrial attachment: "${internshipInfo.substring(0, 80)}". What did they do, what did they learn, what challenges did they face?`
+        : `Ask about their most meaningful academic project or any practical hands-on experience.`,
+    technical: `Ask ONE focused, practical ${fieldLabel} (${program || fieldLabel}) technical question for a fresh graduate. Relate it to something they'd actually encounter at a Ghanaian company or institution.`,
+    behavioral: `Ask a behavioral question about a real situation — teamwork, conflict, leadership, or overcoming a setback. Use implicit STAR framing.`,
+    scenario: `Present a realistic ${fieldLabel} problem scenario — equipment failure, a design trade-off, a site issue — and ask how they'd handle it step by step in a Ghanaian context.`,
+    followup: `Ask a sharp, intelligent follow-up to their last answer. Probe for detail, challenge a vague claim, or ask for a concrete example.`,
+    closing: `Ask about their motivation for national service, 5-year career goals, or what they hope to contribute to Ghana's ${fieldLabel} sector.`,
   };
 
+  // Special override: if has internship and not asked yet, prioritize it
   let instruction = typeGuide[qType] ?? typeGuide.followup;
+  if (qType === 'cv_based' && hasInternship && internshipInfo && !alreadyAskedInternship) {
+    instruction = `The student did industrial attachment/internship: "${internshipInfo}". Ask them specifically about this experience — what they did, what they learned, and how it shaped their understanding of the field.`;
+  }
+
   if (interviewer?.focus) {
     const focusBoost = {
-      behavioral: ' You are the HR interviewer — stay focused on people skills, attitude, and soft skills.',
-      technical: ` You are the Technical Lead — dig deep into ${fieldLabel} technical knowledge.`,
-      cv_project: ' You are the Project Manager — focus on what they built, their impact, and lessons learned.',
-      scenario: ` You are the Senior Engineer — push them with practical ${fieldLabel} field scenarios.`,
+      behavioral: ' You are the HR interviewer — focus on people skills, attitude, and soft skills.',
+      technical: ` You are the Technical Lead — dig into specific ${program || fieldLabel} technical knowledge.`,
+      cv_project: ' You are the Project Manager — focus on projects built, impact made, and lessons learned.',
+      scenario: ` You are the Senior Engineer — push with practical ${fieldLabel} scenarios relevant to Ghana.`,
     };
     instruction += focusBoost[interviewer.focus] ?? '';
   }
 
-  const system = `You are ${interviewer?.name ?? 'the interviewer'} ${interviewer?.role ? `(${interviewer.role})` : ''} conducting a mock national service interview for ${name}, a ${fieldLabel} graduate from a Ghanaian university. This is question ${currentQ + 1} of ${totalQ}.${cvContext}
+  const system = `You are ${interviewer?.name ?? 'the interviewer'} ${interviewer?.role ? `(${interviewer.role})` : ''} conducting a mock national service interview. This is question ${currentQ + 1} of ${totalQ}.
+
+${studentCtx}${cvContext}
 
 Your task: ${instruction}
 
 Critical rules:
 - Ask EXACTLY one question. One. Not two.
-- Keep it 1–3 sentences. Sound like a real human interviewer, not a textbook.
+- 1–3 sentences. Sound like a real Ghanaian professional, not a textbook.
 - DO NOT repeat any question already in the conversation history.
-- DO NOT start with "Great!", "Excellent!", "That's interesting" or any hollow filler praise.
-- DO NOT include preamble — go straight to the question.
-- Output ONLY the question text. Nothing else.`;
+- DO NOT open with "Great!", "Excellent!", "That's interesting" or hollow praise.
+- DO NOT add preamble — go straight to the question.
+- Output ONLY the question text.`;
 
   return callLLM([
     { role: 'system', content: system },
@@ -146,12 +171,13 @@ Return ONLY valid JSON:
 }
 
 // ── 4. GRADE FULL INTERVIEW ──────────────────────────────────────────────────
-async function gradeInterview({ conversation, field: _field, fieldLabel, name }) {
+async function gradeInterview({ conversation, field: _field, fieldLabel, name, program }) {
   const history = conversation
     .map(c => `${c.role === 'ai' ? 'Interviewer' : name}: ${c.text}`)
     .join('\n');
 
-  const system = `You are a senior professional interview assessor grading a mock ${fieldLabel} national service interview for ${name}, a Ghanaian university graduate.
+  const programNote = program ? ` studying ${program}` : '';
+  const system = `You are a senior professional interview assessor grading a mock ${fieldLabel} national service interview for ${name}${programNote} (Ghanaian university graduate).
 
 Analyze the FULL transcript carefully. Be honest and specific — this feedback will help the student improve.
 
@@ -162,12 +188,12 @@ Return ONLY valid JSON — no markdown, no code fences, no extra text:
   "technical": 0-100,
   "relevance": 0-100,
   "confidence": 0-100,
-  "feedback": "3-5 sentences. Reference SPECIFIC things the student said — quote briefly where useful. Be honest about both strengths and weaknesses.",
-  "improvements": ["Specific, actionable improvement 1", "Specific, actionable improvement 2", "Specific, actionable improvement 3"]
+  "feedback": "3-5 sentences. Reference SPECIFIC things the student said. Be honest about strengths and weaknesses.",
+  "improvements": ["Specific actionable tip 1", "Specific actionable tip 2", "Specific actionable tip 3"]
 }
 
-Scoring weights: Communication clarity 25%, Technical accuracy 35%, Answer relevance 20%, Confidence & structure 20%.
-Honest baseline: a well-prepared student scores 60-75. Only exceptional answers break 85. Do not inflate scores.`;
+Scoring: Communication 25%, Technical accuracy 35%, Relevance 20%, Confidence/structure 20%.
+Baseline: well-prepared student = 60-75. Exceptional answers = 80-90. Never inflate.`;
 
   const raw = await callLLM([
     { role: 'system', content: system },

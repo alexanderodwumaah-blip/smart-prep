@@ -7,6 +7,7 @@ const RENDER_URL='https://smart-prep-x8ce.onrender.com';
 const S={
   screen:'auth',user:null,profile:null,name:'',field:'',fieldLabel:'',
   mode:'male',cvData:null,company:'',scheduleMode:false,
+  internshipInfo:'',hasInternship:false,
   conversation:[],currentQ:0,totalQ:8,questionArc:[],phase:'idle',
   isListening:false,isSpeaking:false,serverUp:false,ending:false,
   studentQPhase:false,studentQCount:0,studentQMax:2,
@@ -114,16 +115,43 @@ async function handleSignup(){
   const n=$('#su-name').value.trim();
   let u=$('#su-uni').value;
   if(u==='other'){u=$('#su-uni-other')?.value.trim()||'Other';}
-  const pr=$('#su-prog').value.trim(),e=$('#su-email').value.trim(),p=$('#su-pass').value;
+
+  // Program: value format is "Program Label|fieldKey"
+  const progRaw=$('#su-prog')?.value||'';
+  let pr='', progCategory='';
+  if(progRaw.startsWith('other')){
+    pr=$('#su-prog-other')?.value.trim()||'Other';
+    progCategory='other';
+  } else if(progRaw.includes('|')){
+    [pr,progCategory]=progRaw.split('|');
+  } else {
+    pr=progRaw; progCategory='';
+  }
+
+  // Internship
+  const internYN=$('#su-intern-yn')?.value||'no';
+  const hasInternship=internYN==='yes';
+  const internshipInfo=hasInternship?($('#su-intern-detail')?.value.trim()||''):'';
+
+  const e=$('#su-email').value.trim(), p=$('#su-pass').value;
   if(!n||!e||!p){showAE('Name, email, and password required.');return}
   if(p.length<6){showAE('Password must be at least 6 characters.');return}
   $(`#auth-err`).classList.add('hidden');
   if(btn){btn.disabled=true;btn.textContent='Creating account...'}
-  const{data,error}=await sb.auth.signUp({email:e,password:p,options:{data:{name:n,university:u,program:pr}}});
+  const{data,error}=await sb.auth.signUp({email:e,password:p,options:{data:{
+    name:n,university:u,program:pr,
+    program_category:progCategory,
+    internship_info:internshipInfo,
+    has_internship:hasInternship
+  }}});
   if(btn){btn.disabled=false;btn.textContent='Create Account'}
   if(error){showAE(error.message);return}
-  ['su-name','su-prog','su-email','su-pass'].forEach(id=>{const el=$(`#${id}`);if(el)el.value=''});
-  $(`#su-uni`).value='';$('#su-uni-other')?.classList.add('hidden');
+  // Clear form
+  ['su-name','su-prog-other','su-email','su-pass','su-intern-detail'].forEach(id=>{const el=$(`#${id}`);if(el)el.value=''});
+  $(`#su-uni`).value='';$(`#su-prog`).value='';$(`#su-intern-yn`).value='';
+  $(`#su-uni-other`)?.classList.add('hidden');
+  $(`#su-prog-other`)?.classList.add('hidden');
+  $(`#su-intern-detail`)?.classList.add('hidden');
   if(data?.user&&data.session){toast('Welcome! Account created.','ok')}
   else{toast('Account created! Check your email to verify, then sign in.','ok');switchAuthTab('login')}
 }
@@ -135,6 +163,18 @@ function handleUniChange(sel){
   const other=$('#su-uni-other');
   if(sel.value==='other'){other.classList.remove('hidden');other.focus()}
   else other.classList.add('hidden');
+}
+
+function handleProgChange(sel){
+  const other=$('#su-prog-other');
+  if(sel.value.startsWith('other')){other.classList.remove('hidden');other.focus()}
+  else other.classList.add('hidden');
+}
+
+function handleInternChange(sel){
+  const detail=$('#su-intern-detail');
+  if(sel.value==='yes'){detail.classList.remove('hidden');detail.focus()}
+  else detail.classList.add('hidden');
 }
 
 // ===== TTS — richer voice, sentence-aware pacing =====
@@ -640,7 +680,11 @@ function getCurrentInterviewer(){
 // ===== INTERVIEW FLOW =====
 async function startInt(){
   if(!S.field){toast('Please select an engineering field.','err');return}
-  S.name=S.profile?.name||'Student';S.company=$('#inp-company')?.value.trim()||'';
+  S.name=S.profile?.name||'Student';
+  S.company=$('#inp-company')?.value.trim()||'';
+  // Carry internship info from profile into session context
+  S.internshipInfo=S.profile?.internship_info||'';
+  S.hasInternship=S.profile?.has_internship||false;
   await apiHealth();
   S.conversation=[];S.currentQ=0;S.teamIdx=0;S.ending=false;S.currentSessionId=null;
   // Use selected question count and build a fresh randomized arc
@@ -659,9 +703,10 @@ async function beginInterview(){
   $(`#d-iname`).textContent=S.currentIV.name+' — '+S.currentIV.role;$(`#d-iname`).style.color=S.currentIV.color||'#888';
   await sl(300);
   const vc=getVoiceCfg();
+  const progLabel=S.profile?.program?` — ${S.profile.program}`:'';
   const greeting=S.mode==='team'
-    ?`${gtg()}, ${S.name}. Welcome to your panel interview for ${S.fieldLabel}. ${S.currentIV.intro} To begin, please tell us about yourself.`
-    :`${gtg()}, ${S.name}. I'm ${S.currentIV.name}, your interviewer today. We're conducting a mock national service interview for ${S.fieldLabel}. I'll ask you ${S.totalQ} questions. Please speak clearly and take your time. Let's begin — tell me about yourself.`;
+    ?`${gtg()}, ${S.name}. Welcome to your panel interview for ${S.fieldLabel}${progLabel}. ${S.currentIV.intro} To begin, please tell us about yourself.`
+    :`${gtg()}, ${S.name}. I'm ${S.currentIV.name}, your interviewer today. We're conducting a mock national service interview for ${S.fieldLabel}${progLabel}. I'll ask you ${S.totalQ} questions — please speak clearly and take your time. Let's begin — tell me about yourself.`;
   S.conversation.push({role:'ai',text:greeting,interviewer:S.currentIV.name});
   addMessage('ai',greeting,false);
   setPhase('speaking');
@@ -759,7 +804,13 @@ async function processAnswer(text){
   }
   let question=null;
   if(S.serverUp){
-    try{question=await apiQuestion({conversation:S.conversation,field:S.field,fieldLabel:S.fieldLabel,name:S.name,cvData:S.cvData,interviewer:S.currentIV,currentQ:S.currentQ,totalQ:S.totalQ,questionArc:S.questionArc})}
+    try{question=await apiQuestion({
+      conversation:S.conversation,field:S.field,fieldLabel:S.fieldLabel,
+      name:S.name,cvData:S.cvData,interviewer:S.currentIV,
+      currentQ:S.currentQ,totalQ:S.totalQ,questionArc:S.questionArc,
+      program:S.profile?.program||'',
+      internshipInfo:S.internshipInfo,hasInternship:S.hasInternship
+    })}
     catch(e){console.warn('LLM question failed, using fallback')}
   }
   if(!question)question=fallbackQuestion(text,S.field,S.currentIV,S.currentQ);
@@ -880,7 +931,7 @@ async function finaliseInterview(){
   // Grade and save everything
   let grade=null;
   if(S.serverUp){
-    try{grade=await apiGrade({conversation:S.conversation,field:S.field,fieldLabel:S.fieldLabel,name:S.name})}
+    try{grade=await apiGrade({conversation:S.conversation,field:S.field,fieldLabel:S.fieldLabel,name:S.name,program:S.profile?.program||''})}
     catch(e){console.warn('LLM grading failed, using fallback')}
   }
   if(!grade)grade=fallbackGrade(S.conversation,S.field);
@@ -972,9 +1023,15 @@ function initEvents(){
   switchAuthTab('login');
   // Mode selector
   $$('#mode-sel .md').forEach(b=>b.addEventListener('click',()=>{$$('#mode-sel .md').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');S.mode=b.dataset.m;$(`#team-prev`).classList.toggle('hidden',S.mode!=='team')}));
-  // Field selection enables start button
+  // Field selection enables start button — also pre-select from profile
   const fieldSel=$('#inp-field'),startBtn=$('#btn-start');
   fieldSel.addEventListener('change',()=>{startBtn.disabled=!fieldSel.value;S.field=fieldSel.value;S.fieldLabel=FL[S.field]||S.field});
+  // Pre-select field if profile has a program_category
+  if(S.profile?.program_category&&FL[S.profile.program_category]){
+    fieldSel.value=S.profile.program_category;
+    S.field=S.profile.program_category;S.fieldLabel=FL[S.field];
+    startBtn.disabled=false;
+  }
   // Question count selector
   $$('#qcount-sel button').forEach(btn=>btn.addEventListener('click',()=>{
     $$('#qcount-sel button').forEach(b=>{b.className='flex-1 py-1.5 rounded-lg text-xs font-medium border border-bdr bg-elev text-mut transition hover:border-acc/40'});
@@ -1018,19 +1075,35 @@ function initEvents(){
 
 // ===== AUTH PROFILE LOADER =====
 async function loadProfile(user){
-  const{data:profile,error}=await sb.from('profiles').select('*').eq('id',user.id).single();
+  const{data:profile}=await sb.from('profiles').select('*').eq('id',user.id).single();
   if(profile){
     const meta=user.user_metadata||{};const updates={};
     if(!profile.name&&meta.name)updates.name=meta.name;
     if(!profile.university&&meta.university)updates.university=meta.university;
     if(!profile.program&&meta.program)updates.program=meta.program;
+    if(!profile.program_category&&meta.program_category)updates.program_category=meta.program_category;
+    if(!profile.internship_info&&meta.internship_info)updates.internship_info=meta.internship_info;
+    if(profile.has_internship==null&&meta.has_internship!=null)updates.has_internship=meta.has_internship;
     if(Object.keys(updates).length){await sb.from('profiles').update(updates).eq('id',user.id);S.profile={...profile,...updates}}
     else S.profile=profile;
   }else{
-    // Trigger didn't fire — create profile manually
     const meta=user.user_metadata||{};
-    const{data:np}=await sb.from('profiles').upsert({id:user.id,name:meta.name||user.email?.split('@')[0]||'User',university:meta.university||'',program:meta.program||'',role:'student'},{onConflict:'id'}).select().single();
+    const{data:np}=await sb.from('profiles').upsert({
+      id:user.id,
+      name:meta.name||user.email?.split('@')[0]||'User',
+      university:meta.university||'',
+      program:meta.program||'',
+      program_category:meta.program_category||'',
+      internship_info:meta.internship_info||'',
+      has_internship:meta.has_internship||false,
+      role:'student'
+    },{onConflict:'id'}).select().single();
     S.profile=np||{id:user.id,role:'student',name:meta.name||'User'};
+  }
+  // Derive field from program_category if user hasn't manually set a field yet
+  if(!S.field&&S.profile?.program_category&&S.profile.program_category!=='other'){
+    const cat=S.profile.program_category;
+    if(FL[cat]){S.field=cat;S.fieldLabel=FL[cat]}
   }
 }
 

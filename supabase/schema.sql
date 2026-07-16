@@ -5,24 +5,30 @@
 
 -- ── 1. PROFILES ──────────────────────────────────────────────
 create table if not exists public.profiles (
-  id          uuid primary key references auth.users(id) on delete cascade,
-  name        text,
-  university  text,
-  program     text,
-  role        text not null default 'student', -- 'student' | 'admin'
-  created_at  timestamptz default now()
+  id               uuid primary key references auth.users(id) on delete cascade,
+  name             text,
+  university       text,
+  program          text,
+  program_category text,   -- maps to field key: electrical, computer, civil, etc.
+  internship_info  text,   -- free text: where, what, how long
+  has_internship   boolean default false,
+  role             text not null default 'student', -- 'student' | 'admin'
+  created_at       timestamptz default now()
 );
 
 -- Auto-create profile row on signup
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer as $$
 begin
-  insert into public.profiles (id, name, university, program, role)
+  insert into public.profiles (id, name, university, program, program_category, internship_info, has_internship, role)
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'name', split_part(new.email,'@',1)),
     coalesce(new.raw_user_meta_data->>'university', ''),
     coalesce(new.raw_user_meta_data->>'program', ''),
+    coalesce(new.raw_user_meta_data->>'program_category', ''),
+    coalesce(new.raw_user_meta_data->>'internship_info', ''),
+    (new.raw_user_meta_data->>'has_internship')::boolean,
     'student'
   )
   on conflict (id) do nothing;
@@ -293,3 +299,9 @@ create policy "Admins manage all questions"
   with check (
     exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
   );
+
+-- ── 10. MIGRATION — add new profile columns to existing tables ───────────────
+-- Run this if you already ran the original schema (safe to run multiple times)
+alter table public.profiles add column if not exists program_category text;
+alter table public.profiles add column if not exists internship_info text;
+alter table public.profiles add column if not exists has_internship boolean default false;
