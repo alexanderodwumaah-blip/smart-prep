@@ -95,7 +95,7 @@ body{font-family:'Outfit',sans-serif;background:#0a0a0a;color:#e8e8e8;margin:0;o
         <div id="form-login" class="space-y-3">
             <div><label class="block text-xs font-medium text-gray-400 mb-1">Email</label><input type="email" id="li-email" placeholder="you@example.com" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition"></div>
             <div><label class="block text-xs font-medium text-gray-400 mb-1">Password</label><input type="password" id="li-pass" placeholder="••••••••" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition"></div>
-            <button onclick="handleLogin()" class="w-full bg-acc hover:bg-acc-h text-bg font-semibold py-2.5 rounded-xl text-sm transition">Sign In</button>
+            <button onclick="handleLogin()" id="btn-li" class="w-full bg-acc hover:bg-acc-h text-bg font-semibold py-2.5 rounded-xl text-sm transition">Sign In</button>
         </div>
         <div id="form-signup" class="hidden space-y-3">
             <div><label class="block text-xs font-medium text-gray-400 mb-1">Full Name</label><input type="text" id="su-name" placeholder="Kwame Mensah" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition"></div>
@@ -103,7 +103,7 @@ body{font-family:'Outfit',sans-serif;background:#0a0a0a;color:#e8e8e8;margin:0;o
             <div><label class="block text-xs font-medium text-gray-400 mb-1">Program of Study</label><input type="text" id="su-prog" placeholder="e.g. BSc Electrical Engineering" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition"></div>
             <div><label class="block text-xs font-medium text-gray-400 mb-1">Email</label><input type="email" id="su-email" placeholder="you@example.com" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition"></div>
             <div><label class="block text-xs font-medium text-gray-400 mb-1">Password (min 6)</label><input type="password" id="su-pass" placeholder="••••••••" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition"></div>
-            <button onclick="handleSignup()" class="w-full bg-acc hover:bg-acc-h text-bg font-semibold py-2.5 rounded-xl text-sm transition">Create Account</button>
+            <button onclick="handleSignup()" id="btn-su" class="w-full bg-acc hover:bg-acc-h text-bg font-semibold py-2.5 rounded-xl text-sm transition">Create Account</button>
         </div>
     </div>
 </div>

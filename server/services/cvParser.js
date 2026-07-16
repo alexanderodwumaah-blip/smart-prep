@@ -1,5 +1,6 @@
 const fs = require('fs');
-const pdfParse = require('pdf-parse');
+// Use the internal lib to avoid pdf-parse auto-reading test files on require
+const pdfParse = require('pdf-parse/lib/pdf-parse.js');
 const mammoth = require('mammoth');
 
 const SKILLS_DB = {
