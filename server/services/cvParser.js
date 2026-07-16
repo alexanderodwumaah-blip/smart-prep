@@ -1,5 +1,5 @@
 const fs = require('fs');
-const pdfParse = require('pdf-parse-mg');
+const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
 
 const SKILLS_DB = {

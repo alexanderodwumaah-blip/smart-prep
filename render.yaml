@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: ns-interview-prep
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: GROQ_API_KEY
+        sync: false
+      - key: LLM_ENDPOINT
+        value: https://api.groq.com/openai/v1/chat/completions
+      - key: LLM_MODEL
+        value: llama-3.3-70b-versatile
+      - key: RENDER
+        value: true

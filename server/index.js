@@ -30,10 +30,20 @@ try {
   console.log('llm loaded OK');
 
   const app = express();
-  app.use(cors());
+  app.use(cors({
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:5500',
+      'http://127.0.0.1:5500',
+      /\.vercel\.app$/,
+      /\.onrender\.com$/
+    ],
+    credentials: true
+  }));
   app.use(express.json({ limit: '1mb' }));
 
-  const uploadDir = path.join(__dirname, '..', 'uploads');
+  // Use /tmp on Render (ephemeral, writable), fall back to local uploads
+  const uploadDir = process.env.RENDER ? '/tmp/uploads' : path.join(__dirname, '..', 'uploads');
   if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
   const upload = multer({

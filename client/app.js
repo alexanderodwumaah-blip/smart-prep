@@ -28,7 +28,20 @@ function pk(a){return a[Math.floor(Math.random()*a.length)]}
 function sl(ms){return new Promise(r=>setTimeout(r,ms))}
 function gtg(){const h=new Date().getHours();return h<12?'Good morning':h<17?'Good afternoon':'Good evening'}
 function isSC(){return window.isSecureContext||location.protocol==='https:'||['localhost','127.0.0.1','[::1]'].includes(location.hostname)}
-function getAPI(){return ($('#inp-srv')?.value||'http://localhost:3000').replace(/\/+$/,'')}
+// *** UPDATE THIS with your actual Render URL if it changes ***
+const RENDER_URL='https://ns-interview-prep.onrender.com';
+
+function getAPI(){
+  // If a custom URL is entered, use that
+  const inp=($('#inp-srv')?.value||'').trim();
+  if(inp)return inp.replace(/\/+$/,'');
+  // Use saved URL from localStorage if available
+  const saved=localStorage.getItem('ns_api_url');
+  if(saved)return saved.replace(/\/+$/,'');
+  // On localhost, default to local server; on any deployed domain, use Render
+  if(['localhost','127.0.0.1','[::1]'].includes(location.hostname))return 'http://localhost:3000';
+  return RENDER_URL;
+}
 function toast(msg,t='info'){const e=document.createElement('div');e.className=`toast toast-${t}`;e.textContent=msg;document.body.appendChild(e);setTimeout(()=>e.remove(),3500)}
 
 // ===== PARTICLES =====
@@ -327,7 +340,9 @@ function initEvents(){
     const drop=$('#cv-drop'),inp=$('#cv-inp');drop.addEventListener('click',()=>inp.click());drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('dg')});drop.addEventListener('dragleave',()=>drop.classList.remove('dg'));drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('dg');if(e.dataTransfer.files.length)handleCV(e.dataTransfer.files[0])});inp.addEventListener('change',()=>{if(inp.files.length)handleCV(inp.files[0])});
     $('#btn-mic').addEventListener('click',()=>$('#mt-area').classList.toggle('hidden'));$('#mt-go').addEventListener('click',mtGo);$('#mt-stop').addEventListener('click',mtStop);
     $('#adv-tog').addEventListener('click',()=>{const p=$('#adv-p'),ch=$('#adv-ch');p.classList.toggle('hidden');ch.style.transform=p.classList.contains('hidden')?'':'rotate(180deg)'});
-    $('#inp-srv')?.addEventListener('change',()=>apiHealth());
+    // Pre-fill saved URL and save on change
+    const _savedUrl=localStorage.getItem('ns_api_url')||'';if(_savedUrl&&$('#inp-srv'))$('#inp-srv').value=_savedUrl;
+    $('#inp-srv')?.addEventListener('change',()=>{const v=$('#inp-srv').value.trim();if(v)localStorage.setItem('ns_api_url',v);apiHealth()});
     $('#btn-end').addEventListener('click',async()=>{if(S.phase==='done')return;stt.stop();stopViz();if(S.maxT){clearTimeout(S.maxT);S.maxT=null}await endInt()});
     function sendT(){const t=$('#inp-txt').value.trim();if(!t)return;if(!stt.ok){S.isListening=false;handleAns(t)}}$('#btn-send').addEventListener('click',sendT);$('#inp-txt').addEventListener('keydown',e=>{if(e.key==='Enter')sendT()});
     $('#nav-logout').addEventListener('click',handleLogout);
