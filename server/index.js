@@ -26,7 +26,7 @@ try {
   console.log('cvParser loaded OK');
 
   console.log('Loading llm...');
-  const { generateQuestion, gradeInterview } = require('./services/llm');
+  const { generateQuestion, gradeInterview, analyseAnswer, answerStudentQuestion } = require('./services/llm');
   console.log('llm loaded OK');
 
   const app = express();
@@ -92,6 +92,26 @@ try {
       res.json(grading);
     } catch (err) {
       console.error('Grading error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/analyse-answer', async (req, res) => {
+    try {
+      const result = await analyseAnswer(req.body);
+      res.json(result);
+    } catch (err) {
+      console.error('Answer analysis error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/student-question', async (req, res) => {
+    try {
+      const result = await answerStudentQuestion(req.body);
+      res.json(result);
+    } catch (err) {
+      console.error('Student Q error:', err);
       res.status(500).json({ error: err.message });
     }
   });

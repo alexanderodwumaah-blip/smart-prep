@@ -263,3 +263,33 @@ create policy "Users update own videos"
 -- update public.profiles
 -- set role = 'admin'
 -- where id = (select id from auth.users where email = 'your-admin@email.com');
+
+-- ── 9. STUDENT QUESTIONS FOR ADMIN ──────────────────────────────────────────
+create table if not exists public.admin_questions (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid references public.profiles(id) on delete cascade,
+  session_id   uuid references public.interview_sessions(id) on delete set null,
+  question     text not null,
+  answer       text,
+  answered_by  uuid references public.profiles(id),
+  answered_at  timestamptz,
+  created_at   timestamptz default now()
+);
+
+alter table public.admin_questions enable row level security;
+
+drop policy if exists "Users manage own questions" on public.admin_questions;
+create policy "Users manage own questions"
+  on public.admin_questions for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Admins manage all questions" on public.admin_questions;
+create policy "Admins manage all questions"
+  on public.admin_questions for all
+  using (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+  )
+  with check (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+  );

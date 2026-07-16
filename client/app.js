@@ -9,6 +9,7 @@ const S={
   mode:'male',cvData:null,company:'',scheduleMode:false,
   conversation:[],currentQ:0,totalQ:8,questionArc:[],phase:'idle',
   isListening:false,isSpeaking:false,serverUp:false,ending:false,
+  studentQPhase:false,studentQCount:0,studentQMax:2,
   micStream:null,audioCtx:null,analyser:null,animId:null,
   silenceT:null,maxT:null,finalTxt:'',interimTxt:'',
   currentIV:null,teamIdx:0,
@@ -449,18 +450,50 @@ async function loadTests(){
 // ===== ADMIN =====
 async function loadAdmin(){
   if(!S.user)return;
-  const[{data:users},{data:sessions},{data:grades},{data:tests}]=await Promise.all([sb.from('profiles').select('*').order('created_at',{ascending:false}),sb.from('interview_sessions').select('*'),sb.from('grading_reports').select('*'),sb.from('aptitude_tests').select('id')]);
+  const[{data:users},{data:sessions},{data:grades},{data:tests}]=await Promise.all([
+    sb.from('profiles').select('*').order('created_at',{ascending:false}),
+    sb.from('interview_sessions').select('*'),
+    sb.from('grading_reports').select('*'),
+    sb.from('aptitude_tests').select('id')
+  ]);
   $(`#ad-users`).textContent=users?.length||0;$(`#ad-sess`).textContent=sessions?.length||0;
-  const scores=(grades||[]).map(g=>g.overall_score);$(`#ad-avg`).textContent=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):'—';$(`#ad-tests`).textContent=tests?.length||0;
-  const uStats={};(sessions||[]).forEach(s=>{if(!uStats[s.user_id])uStats[s.user_id]={count:0,scores:[]};uStats[s.user_id].count++;(grades||[]).filter(g=>g.session_id===s.id).forEach(g=>uStats[s.user_id].scores.push(g.overall_score))});
+  const scores=(grades||[]).map(g=>g.overall_score);
+  $(`#ad-avg`).textContent=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):'—';
+  $(`#ad-tests`).textContent=tests?.length||0;
+  const uStats={};
+  (sessions||[]).forEach(s=>{if(!uStats[s.user_id])uStats[s.user_id]={count:0,scores:[]};uStats[s.user_id].count++;(grades||[]).filter(g=>g.session_id===s.id).forEach(g=>uStats[s.user_id].scores.push(g.overall_score))});
   const el=$('#ad-users-list');el.innerHTML='';
-  if(!users?.length){el.innerHTML='<div class="p-4 text-center text-xs text-mut">No users yet.</div>';return}
-  users.slice(0,20).forEach(u=>{
-    const st=uStats[u.id]||{count:0,scores:[]};const avg=st.scores.length?Math.round(st.scores.reduce((a,b)=>a+b,0)/st.scores.length):'—';
-    const row=document.createElement('div');row.className='sr';
-    row.innerHTML=`<div class="flex-1"><div class="text-xs font-medium">${esc(u.name||'—')} ${u.role==='admin'?'<span class="text-[10px] text-acc">Admin</span>':''}<br><span class="text-[10px] text-mut">${esc(u.university||'—')} · ${esc(u.program||'—')}</span></div></div><div class="text-[10px] text-mut mr-3">${st.count} interviews</div><div class="text-xs font-semibold ${typeof avg==='number'?(avg>=70?'text-ok':avg>=50?'text-acc':'text-err'):'text-mut'}">${avg}${typeof avg==='number'?'%':''}</div>`;
-    el.appendChild(row);
-  });
+  if(!users?.length){el.innerHTML='<div class="p-4 text-center text-xs text-mut">No users yet.</div>';}
+  else{
+    users.slice(0,20).forEach(u=>{
+      const st=uStats[u.id]||{count:0,scores:[]};const avg=st.scores.length?Math.round(st.scores.reduce((a,b)=>a+b,0)/st.scores.length):'—';
+      const row=document.createElement('div');row.className='sr';
+      row.innerHTML=`<div class="flex-1"><div class="text-xs font-medium">${esc(u.name||'—')} ${u.role==='admin'?'<span class="text-[10px] text-acc">Admin</span>':''}<br><span class="text-[10px] text-mut">${esc(u.university||'—')} · ${esc(u.program||'—')}</span></div></div><div class="text-[10px] text-mut mr-3">${st.count} interviews</div><div class="text-xs font-semibold ${typeof avg==='number'?(avg>=70?'text-ok':avg>=50?'text-acc':'text-err'):'text-mut'}">${avg}${typeof avg==='number'?'%':''}</div>`;
+      el.appendChild(row);
+    });
+  }
+  // Load unanswered student questions
+  const qel=$('#ad-questions-list');
+  if(qel){
+    const{data:qs}=await sb.from('admin_questions').select('*,profiles(name)').is('answer',null).order('created_at',{ascending:false});
+    if(!qs?.length){qel.innerHTML='<div class="p-4 text-center text-xs text-mut">No pending questions.</div>';}
+    else{
+      qel.innerHTML='';
+      qs.forEach(q=>{
+        const row=document.createElement('div');row.className='p-3 border-b border-bdr/50';
+        row.innerHTML=`<div class="flex items-start gap-3"><div class="flex-1"><div class="text-[10px] text-mut mb-0.5">${esc(q.profiles?.name||'Student')} · ${new Date(q.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</div><p class="text-xs text-white mb-2">${esc(q.question)}</p><div class="flex gap-2"><textarea id="aq-${q.id}" rows="2" placeholder="Type your reply..." class="flex-1 bg-elev border border-bdr rounded-lg px-2 py-1.5 text-[11px] text-white placeholder-mut/40 focus:outline-none focus:border-acc/40 resize-none transition"></textarea><button onclick="replyAdminQuestion('${q.id}')" class="bg-acc hover:bg-acc-h text-bg font-semibold px-2 py-1 rounded-lg text-[10px] self-end transition">Reply</button></div></div></div>`;
+        qel.appendChild(row);
+      });
+    }
+  }
+}
+
+async function replyAdminQuestion(id){
+  const answer=$(`#aq-${id}`)?.value.trim();
+  if(!answer){toast('Write a reply first.','err');return}
+  const{error}=await sb.from('admin_questions').update({answer,answered_by:S.user.id,answered_at:new Date().toISOString()}).eq('id',id);
+  if(error){toast('Failed: '+error.message,'err');return}
+  toast('Reply sent!','ok');loadAdmin();
 }
 
 // ===== MANAGE TESTS =====
@@ -611,7 +644,7 @@ async function startInt(){
   await apiHealth();
   S.conversation=[];S.currentQ=0;S.teamIdx=0;S.ending=false;S.currentSessionId=null;
   // Use selected question count and build a fresh randomized arc
-  S.totalQ=parseInt($('#qcount-sel .border-acc')?.dataset.q||'8');
+  S.totalQ=parseInt($('#qcount-sel .border-acc')?.dataset.q||'12');
   S.questionArc=buildArc(S.totalQ);
   $(`#transcript`).innerHTML='';updateProgress();showScreen('interview');
   $(`#d-field`).textContent=S.fieldLabel;$(`#d-eng`).textContent=S.serverUp?'LLM':'Built-in';
@@ -658,28 +691,72 @@ async function processAnswer(text){
   S.isListening=false;
   if(S.maxT){clearTimeout(S.maxT);S.maxT=null}
   stopVisualizer();
-  // Check text input fallback
+
+  // Fallback to typed input
   if(!text||text.trim().length<3){
     const typed=$('#inp-txt')?.value.trim();
     if(typed&&typed.length>=3){text=typed;$(`#inp-txt`).value=''}
     else{
       setPhase('speaking');
-      const retry="I didn't quite catch that. Please speak clearly or type your answer in the box below.";
+      const retry=pk([
+        "I didn't quite catch that — could you repeat or type your answer below?",
+        "Sorry, I missed that. Could you speak a bit clearer, or type it out?",
+        "I didn't hear you clearly. Please try again or use the text box."
+      ]);
       addMessage('ai',retry,false);S.conversation.push({role:'ai',text:retry,interviewer:S.currentIV.name});
       await tts.speak(retry,getVoiceCfg());await sl(300);await startListening();return;
     }
   }
   removeInterim();
-  // Avoid duplicate message
   const lastSt=Array.from($$('.m-st')).pop();
   if(!lastSt||lastSt.querySelector('.mb')?.textContent!==text)addMessage('student',text,false);
   S.conversation.push({role:'student',text});
   $(`#inp-txt`).disabled=true;$(`#btn-send`).disabled=true;
   S.currentQ++;updateProgress();
+
+  // ── REAL-TIME ANSWER ANALYSIS ──────────────────────────────────────────────
+  let analysis=null;
+  const currentQType=S.questionArc[S.currentQ-1]||'followup';
+  if(S.serverUp&&text.trim().length>8){
+    try{
+      analysis=await fetch(getAPI()+'/api/analyse-answer',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({question:S.conversation.filter(c=>c.role==='ai').slice(-1)[0]?.text||'',answer:text,field:S.field,fieldLabel:S.fieldLabel,questionType:currentQType,interviewerName:S.currentIV.name})
+      }).then(r=>r.ok?r.json():null);
+    }catch(e){/* silent fallback */}
+  }
+
+  // Speak acknowledgement + optional correction
+  if(analysis){
+    const ack=analysis.acknowledgement||'';
+    const correction=analysis.correction;
+    let response=ack;
+    // Only add correction for genuinely wrong technical answers, ~60% of the time (not every time — natural)
+    if(correction&&analysis.isWrongTechnically&&['technical','scenario'].includes(currentQType)&&Math.random()>0.35){
+      response=ack?`${ack} ${correction}`:correction;
+    }
+    if(response&&response.trim()){
+      if(S.currentQ>=S.totalQ){
+        // Last question — say ack then go to close
+        setPhase('speaking');addMessage('ai',response,false);
+        S.conversation.push({role:'ai',text:response,interviewer:S.currentIV.name});
+        await tts.speak(response,getVoiceCfg());await sl(300);
+      }else{
+        setPhase('speaking');addMessage('ai',response,false);
+        S.conversation.push({role:'ai',text:response,interviewer:S.currentIV.name});
+        await tts.speak(response,getVoiceCfg());
+      }
+    }
+  }
+
   if(S.currentQ>=S.totalQ){await endInterview();return}
-  setPhase('processing');await sl(600);
-  // Rotate panel interviewer every 2 questions
-  if(S.mode==='team'&&S.currentQ%2===0){S.teamIdx++;S.currentIV=getCurrentInterviewer();$(`#d-iname`).textContent=S.currentIV.name+' — '+S.currentIV.role;$(`#d-iname`).style.color=S.currentIV.color||'#888'}
+
+  setPhase('processing');await sl(400);
+  // Panel interviewer rotation
+  if(S.mode==='team'&&S.currentQ%2===0){
+    S.teamIdx++;S.currentIV=getCurrentInterviewer();
+    $(`#d-iname`).textContent=S.currentIV.name+' — '+S.currentIV.role;
+    $(`#d-iname`).style.color=S.currentIV.color||'#888';
+  }
   let question=null;
   if(S.serverUp){
     try{question=await apiQuestion({conversation:S.conversation,field:S.field,fieldLabel:S.fieldLabel,name:S.name,cvData:S.cvData,interviewer:S.currentIV,currentQ:S.currentQ,totalQ:S.totalQ,questionArc:S.questionArc})}
@@ -692,23 +769,128 @@ async function processAnswer(text){
 }
 
 async function endInterview(){
-  if(S.ending)return; // FIX: prevent double execution
+  if(S.ending)return;
   S.ending=true;S.phase='done';
   setPhase('processing');
-  const closing=`Thank you, ${S.name}. That completes your mock interview. Please wait a moment while I prepare your feedback.`;
-  addMessage('ai',closing,false);setPhase('speaking');await tts.speak(closing,getVoiceCfg());await sl(500);setPhase('done');
-  const videoUrl=await stopVideoRecording();
+  const closing=pk([
+    `Thank you, ${S.name}. That completes your mock interview. I'll now prepare your feedback. Before we wrap up completely though, do you have any questions for me?`,
+    `Well done, ${S.name} — you've completed all ${S.totalQ} questions. Your results are being prepared. But first — do you have anything you'd like to ask me?`,
+    `That brings us to the end of your mock interview, ${S.name}. Great effort today. I'll have your feedback ready shortly. Any questions on your end before we finish?`
+  ]);
+  addMessage('ai',closing,false);
+  S.conversation.push({role:'ai',text:closing,interviewer:S.currentIV.name});
+  setPhase('speaking');await tts.speak(closing,getVoiceCfg());await sl(400);setPhase('done');
+  // Stop video recording
+  const _videoUrl=await stopVideoRecording();
+  // ── Open student Q&A modal ─────────────────────────────────────────────────
+  S.studentQPhase=true;S.studentQCount=0;S.studentQMax=2;
+  openSQModal();
+}
+
+// ===== STUDENT Q&A MODAL =====
+function openSQModal(){
+  const modal=$('#sq-modal');if(!modal)return;
+  modal.classList.remove('hidden');
+  $(`#sq-remaining`).textContent=S.studentQMax;
+  $(`#sq-ai-answer`).classList.add('hidden');
+  $(`#sq-admin-wrap`).classList.add('hidden');
+  $(`#sq-input-wrap`).classList.remove('hidden');
+  $(`#sq-input`).value='';$(`#sq-input`).focus();
+  $(`#sq-iv-name`).textContent=S.currentIV?.name||'Interviewer';
+  updateSQRemaining();
+}
+
+function closeSQModal(){
+  const modal=$('#sq-modal');if(!modal)return;
+  modal.classList.add('hidden');
+  finaliseInterview();
+}
+
+function updateSQRemaining(){
+  const left=Math.max(0,S.studentQMax-S.studentQCount);
+  $(`#sq-remaining`).textContent=left;
+  $(`#sq-sub`).textContent=left>0?`You have ${left} question${left>1?'s':''} remaining.`:'No more questions — click Done to see your results.';
+  if(left<=0){
+    $(`#sq-input-wrap`).classList.add('hidden');
+    $(`#sq-ask-btn`).disabled=true;
+  }
+}
+
+async function submitStudentQuestion(){
+  const input=$('#sq-input');
+  const q=(input?.value||'').trim();
+  if(!q){toast('Type a question first.','err');return}
+  if(S.studentQCount>=S.studentQMax){toast('No more questions remaining.','err');return}
+
+  const btn=$('#sq-ask-btn');if(btn){btn.disabled=true;btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>'}
+  S.studentQCount++;
+
+  // Show question in transcript
+  addMessage('student',q,false);S.conversation.push({role:'student',text:q});
+  input.value='';
+
+  let result={canAnswer:false,answer:"That's a great question. I'd recommend leaving it for our team who can give you a more accurate answer."};
+  if(S.serverUp){
+    try{
+      const convSummary=S.conversation.slice(-6).map(c=>`${c.role==='ai'?'Interviewer':S.name}: ${c.text}`).join('\n');
+      result=await fetch(getAPI()+'/api/student-question',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({question:q,field:S.field,fieldLabel:S.fieldLabel,interviewerName:S.currentIV?.name,conversationSummary:convSummary})
+      }).then(r=>r.ok?r.json():null)||result;
+    }catch(e){/* use default */}
+  }
+
+  // Show AI answer
+  $(`#sq-ai-answer`).classList.remove('hidden');
+  $(`#sq-answer-text`).textContent=result.answer;
+  addMessage('ai',result.answer,false);
+  S.conversation.push({role:'ai',text:result.answer,interviewer:S.currentIV?.name||'Interviewer'});
+
+  // Speak it
+  await tts.speak(result.answer,getVoiceCfg());
+
+  if(btn){btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-paper-plane"></i>'}
+
+  if(!result.canAnswer){
+    // Show "leave for admin" panel
+    $(`#sq-admin-wrap`).classList.remove('hidden');
+    $(`#sq-admin-msg`).value=q;
+    $(`#sq-input-wrap`).classList.add('hidden');
+  } else {
+    updateSQRemaining();
+    if(S.studentQCount>=S.studentQMax){
+      $(`#sq-input-wrap`).classList.add('hidden');
+    }
+  }
+}
+
+async function submitAdminQuestion(){
+  const msg=$('#sq-admin-msg')?.value.trim();
+  if(!msg){toast('Write your question first.','err');return}
+  if(S.user){
+    const{error}=await sb.from('admin_questions').insert({user_id:S.user.id,session_id:S.currentSessionId||null,question:msg});
+    if(error){toast('Failed to send: '+error.message,'err');return}
+  }
+  toast("Question sent to our team — we'll get back to you soon.",'ok');
+  $(`#sq-admin-wrap`).classList.add('hidden');
+  updateSQRemaining();
+  if(S.studentQCount>=S.studentQMax)$(`#sq-input-wrap`).classList.add('hidden');
+}
+
+async function finaliseInterview(){
+  // Grade and save everything
   let grade=null;
-  if(S.serverUp){try{grade=await apiGrade({conversation:S.conversation,field:S.field,fieldLabel:S.fieldLabel,name:S.name})}catch(e){console.warn('LLM grading failed, using fallback')}}
+  if(S.serverUp){
+    try{grade=await apiGrade({conversation:S.conversation,field:S.field,fieldLabel:S.fieldLabel,name:S.name})}
+    catch(e){console.warn('LLM grading failed, using fallback')}
+  }
   if(!grade)grade=fallbackGrade(S.conversation,S.field);
-  // Persist to DB
   if(S.user&&S.currentSessionId){
     const turns=S.conversation.map((t,i)=>({session_id:S.currentSessionId,turn_number:i,role:t.role,interviewer_name:t.interviewer||null,text:t.text}));
     await sb.from('interview_turns').insert(turns);
     if(grade)await sb.from('grading_reports').insert({session_id:S.currentSessionId,overall_score:grade.overall,communication_score:grade.communication,technical_score:grade.technical,relevance_score:grade.relevance,confidence_score:grade.confidence,feedback_text:grade.feedback,improvement_notes:grade.improvements});
     await sb.from('interview_sessions').update({status:'completed',ended_at:new Date().toISOString()}).eq('id',S.currentSessionId);
   }
-  await sl(400);showResults(grade);
+  await sl(300);showResults(grade);
 }
 
 function showResults(g){
@@ -797,7 +979,8 @@ function initEvents(){
   $$('#qcount-sel button').forEach(btn=>btn.addEventListener('click',()=>{
     $$('#qcount-sel button').forEach(b=>{b.className='flex-1 py-1.5 rounded-lg text-xs font-medium border border-bdr bg-elev text-mut transition hover:border-acc/40'});
     btn.className='flex-1 py-1.5 rounded-lg text-xs font-medium border border-acc bg-acc/10 text-acc transition';
-    const q=parseInt(btn.dataset.q);const mins={5:'~8–10 min',8:'~15–20 min',10:'~20–30 min',12:'~25–35 min'};
+    const q=parseInt(btn.dataset.q);
+    const mins={8:'~15–20 min',12:'~22–30 min',15:'~28–38 min',18:'~35–45 min'};
     const dl=$('#dur-label');if(dl)dl.textContent=`${q} questions · ${mins[q]||'~20 min'}`;
   }));
   startBtn.addEventListener('click',startInt);
