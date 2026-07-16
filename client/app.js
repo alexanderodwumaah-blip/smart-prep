@@ -28,8 +28,7 @@ function pk(a){return a[Math.floor(Math.random()*a.length)]}
 function sl(ms){return new Promise(r=>setTimeout(r,ms))}
 function gtg(){const h=new Date().getHours();return h<12?'Good morning':h<17?'Good afternoon':'Good evening'}
 function isSC(){return window.isSecureContext||location.protocol==='https:'||['localhost','127.0.0.1','[::1]'].includes(location.hostname)}
-// *** UPDATE THIS with your actual Render URL if it changes ***
-const RENDER_URL='https://ns-interview-prep.onrender.com';
+const RENDER_URL='https://smart-prep-x8ce.onrender.com';
 
 function getAPI(){
   // If a custom URL is entered, use that
@@ -56,7 +55,10 @@ links.forEach(l=>{const b=document.createElement('button');b.className=`nl${S.sc
 // ===== AUTH =====
 function switchAuthTab(t){$('#form-login').classList.toggle('hidden',t!=='login');$('#form-signup').classList.toggle('hidden',t!=='signup');$('#tab-login').className=`flex-1 py-1.5 rounded-md text-sm font-medium transition ${t==='login'?'bg-acc text-bg':'text-mut hover:text-white'}`;$('#tab-signup').className=`flex-1 py-1.5 rounded-md text-sm font-medium transition ${t==='signup'?'bg-acc text-bg':'text-mut hover:text-white'}`;$('#auth-err').classList.add('hidden')}
 async function handleLogin(){const e=$('#li-email').value.trim(),p=$('#li-pass').value;if(!e||!p){showAE('Fill in all fields.');return}$('#auth-err').classList.add('hidden');const{error}=await sb.auth.signInWithPassword({email:e,password:p});if(error)showAE(error.message)}
-async function handleSignup(){const n=$('#su-name').value.trim(),u=$('#su-uni').value,pr=$('#su-prog').value.trim(),e=$('#su-email').value.trim(),p=$('#su-pass').value;if(!n||!e||!p){showAE('Name, email, and password required.');return}if(p.length<6){showAE('Password must be at least 6 characters.');return}$('#auth-err').classList.add('hidden');const{data,error}=await sb.auth.signUp({email:e,password:p,options:{data:{name:n,university:u,program:pr}}});if(error)showAE(error.message);else{toast('Account created! Check email to verify, then sign in.','ok');switchAuthTab('login')}}
+async function handleSignup(){const n=$('#su-name').value.trim(),u=$('#su-uni').value,pr=$('#su-prog').value.trim(),e=$('#su-email').value.trim(),p=$('#su-pass').value;if(!n||!e||!p){showAE('Name, email, and password required.');return}if(p.length<6){showAE('Password must be at least 6 characters.');return}$('#auth-err').classList.add('hidden');const{data,error}=await sb.auth.signUp({email:e,password:p,options:{data:{name:n,university:u,program:pr}}});if(error){showAE(error.message);return}
+// If email confirmation is disabled in Supabase, user is immediately signed in
+if(data?.user&&data.session){toast('Account created! Welcome.','ok')}
+else{toast('Account created! Check email to verify, then sign in.','ok');switchAuthTab('login')}}
 function showAE(m){const e=$('#auth-err');e.innerHTML=`<i class="fa-solid fa-circle-exclamation mt-0.5 shrink-0"></i><span>${esc(m)}</span>`;e.classList.remove('hidden')}
 async function handleLogout(){await sb.auth.signOut();S.user=null;S.profile=null;S.sessions=[];showScreen('auth')}
 
@@ -357,12 +359,43 @@ async function init(){
     const today=new Date().toISOString().split('T')[0];const sd=$('#inp-sdate');if(sd)sd.min=today;
     await apiHealth();
     const{data:{session}}=await sb.auth.getSession();
-    if(session){S.user=session.user;const{data:profile}=await sb.from('profiles').select('*').eq('id',S.user.id).single();S.profile=profile;
-        if(profile?.role==='admin'){loadAdmin();showScreen('admin')}else{loadDashboard();showScreen('dash')}}else showScreen('auth');
-    sb.auth.onAuthStateChange(async(event,session)=>{if(event==='SIGNED_IN'&&session){S.user=session.user;const{data:profile}=await sb.from('profiles').select('*').eq('id',S.user.id).single();S.profile=profile;
-        // Update profile with signup metadata if missing
-        if(profile&&session.user?.user_metadata?.name&&!profile.name){await sb.from('profiles').update({name:session.user.user_metadata.name,university:session.user.user_metadata.university,program:session.user.user_metadata.program}).eq('id',S.user.id);S.profile={...profile,...session.user.user_metadata}}
-        if(profile?.role==='admin'){loadAdmin();showScreen('admin')}else{loadDashboard();showScreen('dash')}}else if(event==='SIGNED_OUT'){S.user=null;S.profile=null;showScreen('auth')}});
+    if(session){S.user=session.user;await loadProfile(session.user);
+        if(S.profile?.role==='admin'){loadAdmin();showScreen('admin')}else{loadDashboard();showScreen('dash')}}
+    else showScreen('auth');
+    sb.auth.onAuthStateChange(async(event,session)=>{
+        if(event==='SIGNED_IN'&&session){
+            S.user=session.user;
+            await loadProfile(session.user);
+            if(S.profile?.role==='admin'){loadAdmin();showScreen('admin')}else{loadDashboard();showScreen('dash')}
+        }else if(event==='SIGNED_OUT'){S.user=null;S.profile=null;showScreen('auth')}
+    });
+}
+
+async function loadProfile(user){
+    const{data:profile}=await sb.from('profiles').select('*').eq('id',user.id).single();
+    if(profile){
+        // Fill in missing fields from signup metadata
+        const meta=user.user_metadata||{};
+        const updates={};
+        if(!profile.name&&meta.name)updates.name=meta.name;
+        if(!profile.university&&meta.university)updates.university=meta.university;
+        if(!profile.program&&meta.program)updates.program=meta.program;
+        if(Object.keys(updates).length){
+            await sb.from('profiles').update(updates).eq('id',user.id);
+            S.profile={...profile,...updates};
+        }else{S.profile=profile}
+    }else{
+        // Profile row doesn't exist yet — create it (in case trigger didn't fire)
+        const meta=user.user_metadata||{};
+        const{data:newProfile}=await sb.from('profiles').upsert({
+            id:user.id,
+            name:meta.name||user.email?.split('@')[0]||'User',
+            university:meta.university||'',
+            program:meta.program||'',
+            role:'student'
+        },{onConflict:'id'}).select().single();
+        S.profile=newProfile||{id:user.id,role:'student',name:meta.name||'User'};
+    }
 }
 if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){r=Math.min(r,w/2,h/2);this.moveTo(x+r,y);this.arcTo(x+w,y,x+w,y+h,r);this.arcTo(x+w,y+h,x,y+h,r);this.arcTo(x,y+h,x,y,r);this.arcTo(x,y,x+w,y,r);this.closePath()}}
 document.addEventListener('DOMContentLoaded',init);
