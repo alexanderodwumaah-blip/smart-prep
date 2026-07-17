@@ -19,7 +19,7 @@ const S={
   vidStream:null,mediaRecorder:null,vidChunks:[],isRecording:false,currentSessionId:null
 };
 
-const FL={electrical:'Electrical Engineering',mechanical:'Mechanical Engineering',mining:'Mining Engineering',civil:'Civil Engineering',computer:'Computer Engineering',chemical:'Chemical Engineering',petroleum:'Petroleum Engineering',aerospace:'Aerospace Engineering',agricultural:'Agricultural Engineering',biomedical:'Biomedical Engineering',geomatic:'Geomatic Engineering',materials:'Materials Engineering'};
+const FL={electrical:'Electrical & Electronic Engineering',mechanical:'Mechanical Engineering',mining:'Mining Engineering',civil:'Civil Engineering',computer:'Computer Engineering',chemical:'Chemical Engineering',petroleum:'Petroleum Engineering',aerospace:'Aerospace Engineering',agricultural:'Agricultural Engineering',biomedical:'Biomedical Engineering',geomatic:'Geomatic Engineering',materials:'Materials Engineering',health:'Health Sciences',business:'Business & Management',safety:'Fire Safety & Disaster Management',other:'General Studies'};
 const FK={electrical:['circuit','voltage','current','power','transformer','motor','generator','pcb','plc','relay','wiring','solar','inverter','grid','substation','earthing','switchgear'],mechanical:['cad','thermodynamics','fluid','machine','design','manufacturing','welding','lathe','milling','turbine','pump','bearing','gear','stress','strain','fatigue'],mining:['excavation','drilling','blasting','ore','mineral','tailings','ventilation','shaft','slope','geology','rock','gold','underground','surface','survey'],civil:['concrete','steel','structure','foundation','survey','highway','drainage','soil','beam','column','slab','load','reinforcement','construction','site'],computer:['programming','software','hardware','microcontroller','embedded','algorithm','database','network','python','java','c++','iot','sensor','firmware','linux','arduino'],chemical:['reaction','process','distillation','heat transfer','mass transfer','piping','reactor','catalyst','polymer','fluid flow','thermodynamics','separation','plant','safety'],petroleum:['reservoir','drilling','production','refining','crude','well','pipeline','exploration','formation','gas','oil','upstream','downstream'],aerospace:['aerodynamics','propulsion','structure','flight','aircraft','engine','turbine','lift','drag','composites','avionics','simulation'],agricultural:['irrigation','soil','crop','machinery','processing','farm','tractor','harvest','post-harvest','drainage','greenhouse','yield'],biomedical:['medical','device','implant','biomaterial','prosthetic','diagnostic','tissue','clinical','sterilization','regulatory','signal','imaging'],geomatic:['gis','survey','gps','remote sensing','mapping','cartography','geodesy','photogrammetry','lidar','spatial','coordinate'],materials:['metallurgy','composite','polymer','ceramic','corrosion','heat treatment','alloy','microstructure','testing','characterization']};
 
 const SP={male:{name:'Mr. Osei',gender:'male',pitch:0.85,rate:0.90,role:'Senior Engineer',focus:null,color:'#e8a023'},female:{name:'Ms. Amoako',gender:'female',pitch:1.12,rate:0.94,role:'HR Manager',focus:null,color:'#e8a023'}};
@@ -128,30 +128,21 @@ async function handleSignup(){
     pr=progRaw; progCategory='';
   }
 
-  // Internship
-  const internYN=$('#su-intern-yn')?.value||'no';
-  const hasInternship=internYN==='yes';
-  const internshipInfo=hasInternship?($('#su-intern-detail')?.value.trim()||''):'';
-
   const e=$('#su-email').value.trim(), p=$('#su-pass').value;
   if(!n||!e||!p){showAE('Name, email, and password required.');return}
   if(p.length<6){showAE('Password must be at least 6 characters.');return}
   $(`#auth-err`).classList.add('hidden');
   if(btn){btn.disabled=true;btn.textContent='Creating account...'}
   const{data,error}=await sb.auth.signUp({email:e,password:p,options:{data:{
-    name:n,university:u,program:pr,
-    program_category:progCategory,
-    internship_info:internshipInfo,
-    has_internship:hasInternship
+    name:n,university:u,program:pr,program_category:progCategory
   }}});
   if(btn){btn.disabled=false;btn.textContent='Create Account'}
   if(error){showAE(error.message);return}
   // Clear form
-  ['su-name','su-prog-other','su-email','su-pass','su-intern-detail'].forEach(id=>{const el=$(`#${id}`);if(el)el.value=''});
-  $(`#su-uni`).value='';$(`#su-prog`).value='';$(`#su-intern-yn`).value='';
+  ['su-name','su-prog-other','su-email','su-pass'].forEach(id=>{const el=$(`#${id}`);if(el)el.value=''});
+  $(`#su-uni`).value='';$(`#su-prog`).value='';
   $(`#su-uni-other`)?.classList.add('hidden');
   $(`#su-prog-other`)?.classList.add('hidden');
-  $(`#su-intern-detail`)?.classList.add('hidden');
   if(data?.user&&data.session){toast('Welcome! Account created.','ok')}
   else{toast('Account created! Check your email to verify, then sign in.','ok');switchAuthTab('login')}
 }
@@ -175,6 +166,14 @@ function handleInternChange(sel){
   const detail=$('#su-intern-detail');
   if(sel.value==='yes'){detail.classList.remove('hidden');detail.focus()}
   else detail.classList.add('hidden');
+}
+
+function handleSetupFieldChange(sel){
+  const v=sel.value;
+  S.field=v;
+  S.fieldLabel=FL[v]||(sel.options[sel.selectedIndex]?.text||v);
+  const startBtn=$('#btn-start');
+  if(startBtn)startBtn.disabled=!v;
 }
 
 // ===== TTS — richer voice, sentence-aware pacing =====
@@ -688,7 +687,7 @@ async function startInt(){
   await apiHealth();
   S.conversation=[];S.currentQ=0;S.teamIdx=0;S.ending=false;S.currentSessionId=null;
   // Use selected question count and build a fresh randomized arc
-  S.totalQ=parseInt($('#qcount-sel .border-acc')?.dataset.q||'12');
+  S.totalQ=parseInt($$('#qcount-sel button[data-sel="1"]')[0]?.dataset.q||'12');
   S.questionArc=buildArc(S.totalQ);
   $(`#transcript`).innerHTML='';updateProgress();showScreen('interview');
   $(`#d-field`).textContent=S.fieldLabel;$(`#d-eng`).textContent=S.serverUp?'LLM':'Built-in';
@@ -1023,23 +1022,35 @@ function initEvents(){
   switchAuthTab('login');
   // Mode selector
   $$('#mode-sel .md').forEach(b=>b.addEventListener('click',()=>{$$('#mode-sel .md').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');S.mode=b.dataset.m;$(`#team-prev`).classList.toggle('hidden',S.mode!=='team')}));
-  // Field selection enables start button — also pre-select from profile
+  // Field selection — setup screen uses value=fieldKey directly
   const fieldSel=$('#inp-field'),startBtn=$('#btn-start');
-  fieldSel.addEventListener('change',()=>{startBtn.disabled=!fieldSel.value;S.field=fieldSel.value;S.fieldLabel=FL[S.field]||S.field});
-  // Pre-select field if profile has a program_category
+  fieldSel.addEventListener('change',()=>{
+    const v=fieldSel.value;
+    startBtn.disabled=!v;
+    S.field=v;
+    // Label: use the option text, strip program prefix for display
+    const opt=fieldSel.options[fieldSel.selectedIndex];
+    S.fieldLabel=FL[v]||(opt?opt.text:v);
+  });
+  // Pre-select from profile
   if(S.profile?.program_category&&FL[S.profile.program_category]){
-    fieldSel.value=S.profile.program_category;
-    S.field=S.profile.program_category;S.fieldLabel=FL[S.field];
-    startBtn.disabled=false;
+    // Find first matching option
+    const opts=Array.from(fieldSel.options);
+    const match=opts.find(o=>o.value===S.profile.program_category);
+    if(match){fieldSel.value=S.profile.program_category;S.field=S.profile.program_category;S.fieldLabel=FL[S.field];startBtn.disabled=false}
   }
   // Question count selector
-  $$('#qcount-sel button').forEach(btn=>btn.addEventListener('click',()=>{
-    $$('#qcount-sel button').forEach(b=>{b.className='flex-1 py-1.5 rounded-lg text-xs font-medium border border-bdr bg-elev text-mut transition hover:border-acc/40'});
-    btn.className='flex-1 py-1.5 rounded-lg text-xs font-medium border border-acc bg-acc/10 text-acc transition';
+  const qBtns=$$('#qcount-sel button');
+  qBtns.forEach(btn=>btn.addEventListener('click',()=>{
+    qBtns.forEach(b=>{b.style.borderColor='#2d2d4e';b.style.background='#1a1a2e';b.style.color='#6b7280';b.dataset.sel=''});
+    btn.style.borderColor='#7c3aed';btn.style.background='rgba(124,58,237,.12)';btn.style.color='#a78bfa';btn.dataset.sel='1';
     const q=parseInt(btn.dataset.q);
-    const mins={8:'~15–20 min',12:'~22–30 min',15:'~28–38 min',18:'~35–45 min'};
-    const dl=$('#dur-label');if(dl)dl.textContent=`${q} questions · ${mins[q]||'~20 min'}`;
+    const mins={8:'~15 min',12:'~25 min',15:'~32 min',18:'~40 min'};
+    const dl=$('#dur-label');if(dl)dl.textContent=`${q} questions · ${mins[q]||'~25 min'}`;
   }));
+  // Mark default q-count button (12) as selected
+  const defaultQBtn=Array.from($$('#qcount-sel button')).find(b=>b.dataset.q==='12');
+  if(defaultQBtn){defaultQBtn.style.borderColor='#7c3aed';defaultQBtn.style.background='rgba(124,58,237,.12)';defaultQBtn.style.color='#a78bfa';defaultQBtn.dataset.sel='1'}
   startBtn.addEventListener('click',startInt);
   $(`#btn-schedule`).addEventListener('click',scheduleInterview);
   // CV upload

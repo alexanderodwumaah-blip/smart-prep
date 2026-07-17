@@ -2,441 +2,849 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NS Interview Prep</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0d0d1a">
+<title>NS Interview Prep — AI Mock Interviews</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script>
-tailwind.config={theme:{extend:{colors:{bg:'#0a0a0a',card:'#131313',elev:'#1b1b1b',surf:'#222',bdr:'#2a2a2a',acc:'#e8a023','acc-h':'#f0b040',mut:'#777',ok:'#22c55e',wrn:'#f59e0b',err:'#ef4444'},fontFamily:{o:['Outfit','sans-serif']}}}}
+tailwind.config={theme:{extend:{colors:{
+  bg:'#0d0d1a',card:'#13131f',elev:'#1a1a2e',surf:'#22223b',bdr:'#2d2d4e',
+  acc:'#7c3aed',acc2:'#06b6d4','acc-h':'#8b5cf6',
+  mut:'#6b7280',ok:'#10b981',wrn:'#f59e0b',err:'#ef4444',
+  gold:'#f59e0b',cyan:'#06b6d4',violet:'#7c3aed',pink:'#ec4899'
+},fontFamily:{o:['Outfit','sans-serif']}}}}
 </script>
 <style>
 *,*::before,*::after{box-sizing:border-box}
-body{font-family:'Outfit',sans-serif;background:#0a0a0a;color:#e8e8e8;margin:0;overflow-x:hidden;min-height:100vh}
+html{scroll-behavior:smooth}
+body{font-family:'Outfit',sans-serif;background:#0d0d1a;color:#e2e8f0;margin:0;overflow-x:hidden;min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* ── GRADIENT MESH BG ── */
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 60% at 20% 10%,rgba(124,58,237,.12) 0%,transparent 60%),radial-gradient(ellipse 60% 50% at 80% 80%,rgba(6,182,212,.08) 0%,transparent 60%),radial-gradient(ellipse 50% 40% at 50% 50%,rgba(236,72,153,.05) 0%,transparent 60%);pointer-events:none;z-index:0}
+
+/* ── PARTICLES ── */
 #ptc{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
-.pt{position:absolute;bottom:-10px;border-radius:50%;background:#e8a023;animation:pfU linear infinite}
-@keyframes pfU{0%{transform:translateY(0) translateX(0);opacity:0}8%{opacity:var(--po,.08)}85%{opacity:var(--po,.08)}100%{transform:translateY(-105vh) translateX(40px);opacity:0}}
+.pt{position:absolute;bottom:-10px;border-radius:50%;animation:pfU linear infinite}
+@keyframes pfU{0%{transform:translateY(0);opacity:0}8%{opacity:var(--po,.06)}85%{opacity:var(--po,.06)}100%{transform:translateY(-105vh) translateX(30px);opacity:0}}
+
+/* ── SCREENS ── */
 .scr{display:none;position:relative;z-index:1;min-height:100vh}.scr.on{display:flex}
-.aw{position:relative;width:110px;height:110px;margin:0 auto}
-.ac{position:absolute;inset:24px;border-radius:50%;background:linear-gradient(135deg,#1b1b1b,#2a2a2a);border:2px solid #333;display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#e8a023;z-index:3;transition:all .4s}
-.ac.sp{border-color:#e8a023;box-shadow:0 0 25px rgba(232,160,35,.25)}.ac.li{border-color:#22c55e;box-shadow:0 0 25px rgba(34,197,94,.2)}.ac.th{border-color:#8b8b8b;animation:tp 1.2s ease-in-out infinite}
-@keyframes tp{0%,100%{box-shadow:0 0 10px rgba(139,139,139,.1)}50%{box-shadow:0 0 25px rgba(139,139,139,.3)}}
+
+/* ── AVATAR / INTERVIEW RING ── */
+.aw{position:relative;width:100px;height:100px;margin:0 auto}
+.ac{position:absolute;inset:20px;border-radius:50%;background:linear-gradient(135deg,#1a1a2e,#22223b);border:2px solid #2d2d4e;display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:#7c3aed;z-index:3;transition:all .4s}
+.ac.sp{border-color:#7c3aed;box-shadow:0 0 30px rgba(124,58,237,.35),0 0 60px rgba(124,58,237,.15)}
+.ac.li{border-color:#10b981;box-shadow:0 0 30px rgba(16,185,129,.3)}
+.ac.th{border-color:#6b7280;animation:tp 1.2s ease-in-out infinite}
+@keyframes tp{0%,100%{box-shadow:0 0 10px rgba(107,114,128,.1)}50%{box-shadow:0 0 25px rgba(107,114,128,.3)}}
 .ar{position:absolute;border-radius:50%;border:1.5px solid transparent;z-index:2}
-.r1{inset:12px;border-color:rgba(232,160,35,.15)}.r2{inset:2px;border-color:rgba(232,160,35,.08)}.r3{inset:-6px;border-color:rgba(232,160,35,.04)}
+.r1{inset:10px;border-color:rgba(124,58,237,.2)}.r2{inset:1px;border-color:rgba(124,58,237,.1)}.r3{inset:-8px;border-color:rgba(124,58,237,.05)}
 .r1.pu,.r2.pu,.r3.pu{animation:rp 2s ease-out infinite}.r2.pu{animation-delay:.3s}.r3.pu{animation-delay:.6s}
-@keyframes rp{0%{transform:scale(1);opacity:1}100%{transform:scale(1.35);opacity:0}}
-.sw{display:flex;gap:3px;justify-content:center;align-items:flex-end;height:22px;margin-top:6px}
-.sba{width:3.5px;border-radius:2px;background:#e8a023;height:4px}
-.sw.on .sba{animation:wb .6s ease-in-out infinite alternate}
-.sw.on .sba:nth-child(1){animation-delay:0s}.sw.on .sba:nth-child(2){animation-delay:.08s}.sw.on .sba:nth-child(3){animation-delay:.16s}.sw.on .sba:nth-child(4){animation-delay:.24s}.sw.on .sba:nth-child(5){animation-delay:.32s}.sw.on .sba:nth-child(6){animation-delay:.4s}.sw.on .sba:nth-child(7){animation-delay:.48s}
+@keyframes rp{0%{transform:scale(1);opacity:1}100%{transform:scale(1.4);opacity:0}}
+
+/* ── SOUND BARS ── */
+.sw{display:flex;gap:3px;justify-content:center;align-items:flex-end;height:20px;margin-top:4px}
+.sba{width:3px;border-radius:2px;background:linear-gradient(to top,#7c3aed,#06b6d4);height:4px}
+.sw.on .sba{animation:wb .5s ease-in-out infinite alternate}
+.sw.on .sba:nth-child(1){animation-delay:0s}.sw.on .sba:nth-child(2){animation-delay:.07s}.sw.on .sba:nth-child(3){animation-delay:.14s}.sw.on .sba:nth-child(4){animation-delay:.21s}.sw.on .sba:nth-child(5){animation-delay:.28s}.sw.on .sba:nth-child(6){animation-delay:.35s}.sw.on .sba:nth-child(7){animation-delay:.42s}
 @keyframes wb{0%{height:4px}100%{height:18px}}
 #audio-canvas{display:block;margin:6px auto 0;border-radius:6px}
-.ta{max-height:260px;overflow-y:auto;padding:10px;background:#0f0f0f;border:1px solid #1e1e1e;border-radius:10px}
-.ta::-webkit-scrollbar{width:3px}.ta::-webkit-scrollbar-thumb{background:#333;border-radius:3px}
-.m{margin-bottom:8px;animation:mi .25s ease-out}.ml{font-size:.62rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px}
-.m-ai .ml{color:#e8a023}.m-st .ml{color:#22c55e}.m-im .ml{color:#555}
-.mb{font-size:.85rem;line-height:1.5;color:#ccc}.m-ai .mb{color:#ddd}.m-st .mb{color:#b8e6c8}.m-im .mb{color:#444;font-style:italic}
-.mn{font-size:.6rem;margin-bottom:1px;font-weight:500}
-@keyframes mi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-.sc-bg{fill:none;stroke:#222;stroke-width:7}.sc-ar{fill:none;stroke:#e8a023;stroke-width:7;stroke-linecap:round;transform:rotate(-90deg);transform-origin:center;transition:stroke-dashoffset 1.5s ease-out}
-.bt{height:7px;background:#1e1e1e;border-radius:4px;overflow:hidden}.bf{height:100%;border-radius:4px;transition:width 1.2s ease-out}
-.fb{background:rgba(232,160,35,.12);color:#e8a023;font-size:.65rem;font-weight:600;padding:2px 8px;border-radius:12px;border:1px solid rgba(232,160,35,.2)}
-.eb{font-size:.58rem;padding:1px 5px;border-radius:7px;background:#1a1a1a;color:#888;border:1px solid #2a2a2a}
-.gl{height:1px;background:linear-gradient(90deg,transparent,rgba(232,160,35,.3),transparent)}
-.stg{display:inline-block;background:rgba(232,160,35,.1);color:#e8a023;font-size:.62rem;padding:1px 6px;border-radius:7px;border:1px solid rgba(232,160,35,.15);margin:1px}
-.cvd{border:2px dashed #2a2a2a;border-radius:10px;padding:16px;text-align:center;cursor:pointer;transition:all .2s}
-.cvd:hover,.cvd.dg{border-color:#e8a023;background:rgba(232,160,35,.04)}.cvd.hf{border-color:#22c55e;border-style:solid;background:rgba(34,197,94,.04)}
-.pw{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:8px 10px;font-size:.72rem;color:#fca5a5;display:flex;align-items:start;gap:6px;margin-bottom:8px}
-.md{padding:7px 10px;border-radius:8px;border:1.5px solid #2a2a2a;background:#141414;cursor:pointer;transition:all .2s;text-align:center;flex:1}
-.md:hover{border-color:#444}.md.sel{border-color:#e8a023;background:rgba(232,160,35,.08)}
-.mdi{font-size:1rem;margin-bottom:2px}.mdl{font-size:.63rem;font-weight:600;color:#ccc;display:block}.mds{font-size:.55rem;color:#666;display:block;margin-top:1px}
-.mta{background:#0e0e0e;border:1px solid #1e1e1e;border-radius:10px;padding:14px;text-align:center}
-.sc-card{background:#161616;border:1px solid #252525;border-radius:10px;padding:14px;text-align:center}
-.sc-n{font-size:1.6rem;font-weight:800;line-height:1}.sc-l{font-size:.65rem;color:#888;margin-top:3px}
-.nl{padding:5px 12px;border-radius:7px;font-size:.75rem;font-weight:500;cursor:pointer;transition:all .15s;color:#888}
-.nl:hover{color:#ccc;background:#1a1a1a}.nl.act{color:#e8a023;background:rgba(232,160,35,.1)}
-.sr{display:flex;align-items:center;padding:10px 14px;border-bottom:1px solid #1e1e1e;cursor:pointer;transition:background .15s}.sr:hover{background:#1a1a1a}
-.tr{display:flex;align-items:center;padding:12px 14px;border-bottom:1px solid #1e1e1e;gap:10px}
-.spin{animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
-.toast{position:fixed;bottom:20px;right:20px;padding:10px 18px;border-radius:8px;font-size:.8rem;z-index:200;animation:ti .3s ease-out;max-width:340px}
-.toast-ok{background:#16a34a;color:#fff}.toast-err{background:#dc2626;color:#fff}.toast-info{background:#2563eb;color:#fff}
-@keyframes ti{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-.rec-dot{width:10px;height:10px;border-radius:50%;background:#ef4444;animation:rd 1s ease-in-out infinite}
-@keyframes rd{0%,100%{opacity:1}50%{opacity:.3}}
-.vid-prev{position:absolute;bottom:80px;right:12px;width:160px;height:120px;border-radius:10px;overflow:hidden;border:2px solid #333;z-index:10;box-shadow:0 4px 20px rgba(0,0,0,.6)}
+
+/* ── TRANSCRIPT ── */
+.ta{max-height:45vh;overflow-y:auto;padding:10px;background:rgba(13,13,26,.8);border:1px solid #2d2d4e;border-radius:12px;backdrop-filter:blur(8px)}
+.ta::-webkit-scrollbar{width:3px}.ta::-webkit-scrollbar-thumb{background:#2d2d4e;border-radius:3px}
+.m{margin-bottom:8px;animation:mi .2s ease-out}
+.ml{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px}
+.m-ai .ml{color:#7c3aed}.m-st .ml{color:#10b981}.m-im .ml{color:#374151}
+.mb{font-size:.84rem;line-height:1.55;color:#cbd5e1}.m-ai .mb{color:#e2e8f0}.m-st .mb{color:#a7f3d0}.m-im .mb{color:#374151;font-style:italic}
+.mn{font-size:.58rem;margin-bottom:1px;font-weight:600}
+@keyframes mi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── SCORE ARC ── */
+.sc-bg{fill:none;stroke:#1a1a2e;stroke-width:8}
+.sc-ar{fill:none;stroke:url(#scoreGrad);stroke-width:8;stroke-linecap:round;transform:rotate(-90deg);transform-origin:center;transition:stroke-dashoffset 1.6s ease-out}
+
+/* ── BARS ── */
+.bt{height:6px;background:#1a1a2e;border-radius:4px;overflow:hidden}.bf{height:100%;border-radius:4px;transition:width 1.2s ease-out}
+
+/* ── BADGES ── */
+.fb{background:rgba(124,58,237,.15);color:#a78bfa;font-size:.62rem;font-weight:700;padding:2px 10px;border-radius:20px;border:1px solid rgba(124,58,237,.3)}
+.eb{font-size:.56rem;padding:1px 6px;border-radius:6px;background:#1a1a2e;color:#6b7280;border:1px solid #2d2d4e}
+.stg{display:inline-block;background:rgba(6,182,212,.1);color:#67e8f9;font-size:.6rem;padding:2px 7px;border-radius:8px;border:1px solid rgba(6,182,212,.2);margin:1px}
+
+/* ── DIVIDER ── */
+.gl{height:1px;background:linear-gradient(90deg,transparent,rgba(124,58,237,.4),rgba(6,182,212,.3),transparent)}
+
+/* ── CARDS ── */
+.sc-card{background:linear-gradient(135deg,#13131f,#1a1a2e);border:1px solid #2d2d4e;border-radius:14px;padding:14px;text-align:center;transition:all .2s;position:relative;overflow:hidden}
+.sc-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(124,58,237,.03),rgba(6,182,212,.03));pointer-events:none}
+.sc-card:hover{border-color:#7c3aed;transform:translateY(-1px)}
+.sc-n{font-size:1.7rem;font-weight:900;line-height:1}.sc-l{font-size:.62rem;color:#6b7280;margin-top:3px;font-weight:500;text-transform:uppercase;letter-spacing:.05em}
+
+/* ── NAV LINKS ── */
+.nl{padding:5px 14px;border-radius:8px;font-size:.75rem;font-weight:600;cursor:pointer;transition:all .15s;color:#6b7280}
+.nl:hover{color:#e2e8f0;background:rgba(124,58,237,.1)}.nl.act{color:#a78bfa;background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.2)}
+
+/* ── SESSION / TEST ROWS ── */
+.sr{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid #1a1a2e;cursor:pointer;transition:all .15s}
+.sr:hover{background:rgba(124,58,237,.05);padding-left:20px}
+.tr{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid #1a1a2e;gap:12px}
+
+/* ── MODE SELECTOR ── */
+.md{padding:8px 6px;border-radius:10px;border:1.5px solid #2d2d4e;background:#13131f;cursor:pointer;transition:all .2s;text-align:center;flex:1}
+.md:hover{border-color:#4c1d95;background:#1a1a2e}.md.sel{border-color:#7c3aed;background:rgba(124,58,237,.12);box-shadow:0 0 15px rgba(124,58,237,.15)}
+.mdi{font-size:1.1rem;margin-bottom:3px}.mdl{font-size:.62rem;font-weight:700;color:#e2e8f0;display:block;text-transform:uppercase;letter-spacing:.04em}.mds{font-size:.53rem;color:#6b7280;display:block;margin-top:1px}
+
+/* ── CV DROP ── */
+.cvd{border:2px dashed #2d2d4e;border-radius:12px;padding:18px;text-align:center;cursor:pointer;transition:all .2s}
+.cvd:hover,.cvd.dg{border-color:#7c3aed;background:rgba(124,58,237,.05)}.cvd.hf{border-color:#10b981;border-style:solid;background:rgba(16,185,129,.05)}
+
+/* ── WARNINGS ── */
+.pw{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:10px;padding:10px 12px;font-size:.72rem;color:#fca5a5;display:flex;align-items:start;gap:8px;margin-bottom:8px}
+
+/* ── MIC TEST ── */
+.mta{background:rgba(13,13,26,.8);border:1px solid #2d2d4e;border-radius:12px;padding:14px;text-align:center;backdrop-filter:blur(8px)}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:24px;right:16px;padding:12px 20px;border-radius:12px;font-size:.8rem;font-weight:600;z-index:300;animation:ti .3s ease-out;max-width:320px;backdrop-filter:blur(12px);box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.toast-ok{background:rgba(16,185,129,.9);color:#fff;border:1px solid rgba(16,185,129,.5)}
+.toast-err{background:rgba(239,68,68,.9);color:#fff;border:1px solid rgba(239,68,68,.5)}
+.toast-info{background:rgba(124,58,237,.9);color:#fff;border:1px solid rgba(124,58,237,.5)}
+@keyframes ti{from{opacity:0;transform:translateY(16px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+/* ── REC DOT ── */
+.rec-dot{width:9px;height:9px;border-radius:50%;background:#ef4444;animation:rd 1s ease-in-out infinite}
+@keyframes rd{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(239,68,68,.4)}50%{opacity:.4;box-shadow:0 0 0 6px rgba(239,68,68,0)}}
+
+/* ── VIDEO PREVIEW ── */
+.vid-prev{position:absolute;bottom:90px;right:12px;width:140px;height:105px;border-radius:12px;overflow:hidden;border:2px solid rgba(124,58,237,.4);z-index:10;box-shadow:0 8px 32px rgba(0,0,0,.6)}
 .vid-prev video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
-@media(max-width:640px){.md{padding:5px 3px}.mdi{font-size:.85rem}.sc-n{font-size:1.3rem}.vid-prev{width:100px;height:75px;bottom:70px;right:8px}.hide-sm{display:none!important}}
+
+/* ── INPUTS ── */
+input,select,textarea{-webkit-appearance:none;appearance:none}
+select option{background:#1a1a2e;color:#e2e8f0}
+select optgroup{background:#13131f;color:#7c3aed;font-weight:700}
+
+/* ── GLOW BTN ── */
+.btn-glow{position:relative;overflow:hidden}
+.btn-glow::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.1),transparent);pointer-events:none}
+
+/* ── MOBILE SAFE AREA ── */
+@supports(padding:max(0px)){
+  .pb-safe{padding-bottom:max(16px,env(safe-area-inset-bottom))}
+  .pt-safe{padding-top:max(48px,calc(44px + env(safe-area-inset-top)))}
+}
+
+/* ── RESPONSIVE ── */
+@media(max-width:480px){
+  .md{padding:6px 4px}.mdi{font-size:.95rem}.sc-n{font-size:1.4rem}
+  .vid-prev{width:100px;height:75px;bottom:75px;right:8px}
+  .hide-sm{display:none!important}
+  .ta{max-height:38vh}
+}
+@media(max-width:360px){.md{padding:5px 2px}.mdi{font-size:.8rem}.mdl{font-size:.55rem}}
 @media(prefers-reduced-motion:reduce){.pt,.ar,.sba{animation:none!important}.ac.th{animation:none!important}.rec-dot{animation:none!important}*{transition-duration:.01ms!important}}
+
+/* ── SPIN ── */
+.spin{animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
+
+/* ── GRADIENT TEXT ── */
+.grad-text{background:linear-gradient(135deg,#a78bfa,#67e8f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.grad-text-gold{background:linear-gradient(135deg,#fbbf24,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 </style>
 </head>
 <body>
 <div id="ptc" aria-hidden="true"></div>
 
+<!-- SVG DEFS for score gradient -->
+<svg width="0" height="0" style="position:absolute"><defs><linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:#7c3aed"/><stop offset="100%" style="stop-color:#06b6d4"/></linearGradient></defs></svg>
+
 <!-- NAV -->
-<nav id="navbar" class="hidden fixed top-0 inset-x-0 z-50 bg-card/90 backdrop-blur-md border-b border-bdr/50">
-  <div class="max-w-5xl mx-auto flex items-center justify-between px-4 h-11">
-    <div class="flex items-center gap-2"><i class="fa-solid fa-graduation-cap text-acc text-sm"></i><span class="font-bold text-sm">NS Prep</span></div>
-    <div class="flex items-center gap-1" id="nav-links"></div>
-    <div class="flex items-center gap-3"><span class="text-xs text-mut hide-sm" id="nav-name"></span><button id="nav-logout" class="text-xs text-mut hover:text-err transition" title="Sign out"><i class="fa-solid fa-right-from-bracket"></i></button></div>
+<nav id="navbar" class="hidden fixed top-0 inset-x-0 z-50 border-b border-bdr/40" style="background:rgba(13,13,26,.85);backdrop-filter:blur(16px)">
+  <div class="max-w-5xl mx-auto flex items-center justify-between px-4 h-12">
+    <div class="flex items-center gap-2.5">
+      <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,#7c3aed,#06b6d4)">
+        <i class="fa-solid fa-graduation-cap text-white text-xs"></i>
+      </div>
+      <span class="font-bold text-sm grad-text">NS Prep</span>
+    </div>
+    <div class="flex items-center gap-0.5" id="nav-links"></div>
+    <div class="flex items-center gap-3">
+      <span class="text-xs text-mut hide-sm font-medium" id="nav-name"></span>
+      <button id="nav-logout" class="w-7 h-7 rounded-lg bg-err/10 hover:bg-err/20 text-err/70 hover:text-err transition flex items-center justify-center" title="Sign out">
+        <i class="fa-solid fa-right-from-bracket text-xs"></i>
+      </button>
+    </div>
   </div>
 </nav>
 
 <!-- AUTH -->
-<div id="s-auth" class="scr on flex-col items-center justify-center px-4 py-10">
+<div id="s-auth" class="scr on flex-col items-center justify-center px-4 py-10 min-h-screen">
 <div class="w-full max-w-sm">
-    <div class="text-center mb-5">
-        <div class="inline-flex items-center gap-2 mb-2"><div class="w-9 h-9 rounded-lg bg-acc/20 border border-acc/30 flex items-center justify-center"><i class="fa-solid fa-graduation-cap text-acc"></i></div><span class="text-lg font-bold">NS Interview Prep</span></div>
-        <p class="text-mut text-xs">AI mock interviews for Ghanaian engineering students</p>
+  <div class="text-center mb-6">
+    <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3 btn-glow" style="background:linear-gradient(135deg,#7c3aed,#06b6d4)">
+      <i class="fa-solid fa-graduation-cap text-white text-xl"></i>
     </div>
-    <div class="bg-card border border-bdr rounded-2xl p-5">
-        <div class="flex mb-4 bg-elev rounded-lg p-0.5"><button class="flex-1 py-1.5 rounded-md text-sm font-medium transition bg-acc text-bg" id="tab-login" onclick="switchAuthTab('login')">Sign In</button><button class="flex-1 py-1.5 rounded-md text-sm font-medium transition text-mut hover:text-white" id="tab-signup" onclick="switchAuthTab('signup')">Create Account</button></div>
-        <div id="auth-err" class="hidden pw text-xs mb-3"></div>
-        <div id="form-login" class="space-y-3">
-            <div><label class="block text-xs font-medium text-gray-400 mb-1">Email</label><input type="email" id="li-email" placeholder="you@example.com" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition"></div>
-            <div><label class="block text-xs font-medium text-gray-400 mb-1">Password</label><input type="password" id="li-pass" placeholder="••••••••" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition"></div>
-            <button onclick="handleLogin()" id="btn-li" class="w-full bg-acc hover:bg-acc-h text-bg font-semibold py-2.5 rounded-xl text-sm transition">Sign In</button>
-        </div>
-        <div id="form-signup" class="hidden space-y-3">
-            <div><label class="block text-xs font-medium text-gray-400 mb-1">Full Name</label><input type="text" id="su-name" placeholder="Kwame Mensah" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition"></div>
-            <div><label class="block text-xs font-medium text-gray-400 mb-1">University</label><select id="su-uni" onchange="handleUniChange(this)" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-acc/50 transition appearance-none cursor-pointer"><option value="">Select...</option><option>University of Energy and Natural Resources (UENR)</option><option>Kwame Nkrumah University of Science and Technology (KNUST)</option><option>University of Ghana (Legon)</option><option>University of Cape Coast (UCC)</option><option>University of Mines and Technology (UMaT)</option><option>University of Development Studies (UDS)</option><option>University of Education, Winneba (UEW)</option><option>University of Professional Studies, Accra (UPSA)</option><option>Accra Technical University</option><option>Takoradi Technical University</option><option>Kumasi Technical University</option><option>Ho Technical University</option><option>Koforidua Technical University</option><option>Catholic University of Ghana</option><option>Methodist University College</option><option>Central University</option><option>Lancaster University Ghana</option><option>Regent University</option><option>All Nations University</option><option>Valley View University</option><option value="other">Other</option></select><input type="text" id="su-uni-other" placeholder="Type your university name" class="hidden mt-1.5 w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition"></div>
-            <div>
-              <label class="block text-xs font-medium text-gray-400 mb-1">Program of Study</label>
-              <select id="su-prog" onchange="handleProgChange(this)" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-acc/50 transition appearance-none cursor-pointer">
-                <option value="">Select your program...</option>
-                <optgroup label="⚡ Engineering — Electrical / Electronic / Energy">
-                  <option value="BSc Electrical Engineering|electrical">BSc Electrical Engineering</option>
-                  <option value="BSc Electronic Engineering|electrical">BSc Electronic Engineering</option>
-                  <option value="BSc Electrical &amp; Electronic Engineering|electrical">BSc Electrical &amp; Electronic Engineering</option>
-                  <option value="BSc Renewable Energy Engineering|electrical">BSc Renewable Energy Engineering</option>
-                  <option value="BSc Energy Systems Engineering|electrical">BSc Energy Systems Engineering</option>
-                  <option value="BSc Power Systems Engineering|electrical">BSc Power Systems Engineering</option>
-                </optgroup>
-                <optgroup label="💻 Engineering — Computer / IT">
-                  <option value="BSc Computer Engineering|computer">BSc Computer Engineering</option>
-                  <option value="BSc Computer Science|computer">BSc Computer Science</option>
-                  <option value="BSc Information Technology|computer">BSc Information Technology</option>
-                  <option value="Diploma in Information Technology|computer">Diploma in Information Technology</option>
-                  <option value="BSc Telecommunications Engineering|computer">BSc Telecommunications Engineering</option>
-                </optgroup>
-                <optgroup label="⚙️ Engineering — Mechanical / Industrial">
-                  <option value="BSc Mechanical Engineering|mechanical">BSc Mechanical Engineering</option>
-                  <option value="BSc Industrial Engineering|mechanical">BSc Industrial Engineering</option>
-                  <option value="BSc Manufacturing Engineering|mechanical">BSc Manufacturing Engineering</option>
-                  <option value="BSc Automotive Engineering|mechanical">BSc Automotive Engineering</option>
-                  <option value="BSc Marine Engineering|mechanical">BSc Marine Engineering</option>
-                  <option value="BSc Aerospace Engineering|aerospace">BSc Aerospace Engineering</option>
-                </optgroup>
-                <optgroup label="🏗️ Engineering — Civil / Structural">
-                  <option value="BSc Civil Engineering|civil">BSc Civil Engineering</option>
-                  <option value="BSc Structural Engineering|civil">BSc Structural Engineering</option>
-                  <option value="BSc Construction Engineering|civil">BSc Construction Engineering</option>
-                  <option value="BSc Urban Engineering|civil">BSc Urban Engineering</option>
-                  <option value="BSc Water Resources Engineering|civil">BSc Water Resources Engineering</option>
-                </optgroup>
-                <optgroup label="⛏️ Engineering — Mining / Geological">
-                  <option value="BSc Mining Engineering|mining">BSc Mining Engineering</option>
-                  <option value="BSc Sustainable Mining|mining">BSc Sustainable Mining</option>
-                  <option value="BSc Urban Mining|mining">BSc Urban Mining</option>
-                  <option value="BSc Geological Engineering|geomatic">BSc Geological Engineering</option>
-                  <option value="BSc Geomatics Engineering|geomatic">BSc Geomatics Engineering</option>
-                  <option value="BSc Geomatic Engineering|geomatic">BSc Geomatic Engineering</option>
-                </optgroup>
-                <optgroup label="🌱 Engineering — Agricultural / Environmental">
-                  <option value="BSc Agricultural Engineering|agricultural">BSc Agricultural Engineering</option>
-                  <option value="BSc Environmental Engineering|agricultural">BSc Environmental Engineering</option>
-                  <option value="BSc Food Science &amp; Technology|agricultural">BSc Food Science &amp; Technology</option>
-                  <option value="BSc Natural Resource Management|agricultural">BSc Natural Resource Management</option>
-                </optgroup>
-                <optgroup label="🧪 Engineering — Chemical / Petroleum">
-                  <option value="BSc Chemical Engineering|chemical">BSc Chemical Engineering</option>
-                  <option value="BSc Petrochemical Engineering|petroleum">BSc Petrochemical Engineering</option>
-                  <option value="BSc Petroleum Engineering|petroleum">BSc Petroleum Engineering</option>
-                  <option value="BSc Process Engineering|chemical">BSc Process Engineering</option>
-                </optgroup>
-                <optgroup label="🩺 Engineering — Biomedical / Materials">
-                  <option value="BSc Biomedical Engineering|biomedical">BSc Biomedical Engineering</option>
-                  <option value="BSc Materials Engineering|materials">BSc Materials Engineering</option>
-                  <option value="BSc Metallurgical Engineering|materials">BSc Metallurgical Engineering</option>
-                </optgroup>
-                <optgroup label="🏥 Health Sciences">
-                  <option value="BSc Nursing|health">BSc Nursing</option>
-                  <option value="Diploma in Nursing|health">Diploma in Nursing</option>
-                  <option value="BSc Medical Laboratory Science|health">BSc Medical Laboratory Science</option>
-                  <option value="BSc Pharmacy|health">BSc Pharmacy</option>
-                  <option value="BSc Public Health|health">BSc Public Health</option>
-                  <option value="BSc Biological Science|health">BSc Biological Science</option>
-                  <option value="BSc Chemistry|health">BSc Chemistry</option>
-                </optgroup>
-                <optgroup label="📊 Business / Management">
-                  <option value="BSc Accounting|business">BSc Accounting</option>
-                  <option value="BSc Economics|business">BSc Economics</option>
-                  <option value="BSc Business Administration|business">BSc Business Administration</option>
-                  <option value="BSc Entrepreneurship|business">BSc Entrepreneurship</option>
-                  <option value="BSc Hospitality Management|business">BSc Hospitality Management</option>
-                  <option value="BSc Marketing|business">BSc Marketing</option>
-                </optgroup>
-                <optgroup label="🌍 Environment / Agriculture / Science">
-                  <option value="BSc Agriculture|agricultural">BSc Agriculture</option>
-                  <option value="BSc Climate Science|agricultural">BSc Climate Science</option>
-                  <option value="BSc Environmental Science|agricultural">BSc Environmental Science</option>
-                  <option value="BSc Earth Science|geomatic">BSc Earth Science</option>
-                </optgroup>
-                <optgroup label="🔒 Safety / Disaster Management">
-                  <option value="BSc Fire Safety &amp; Disaster Management|safety">BSc Fire Safety &amp; Disaster Management</option>
-                  <option value="BSc Occupational Health &amp; Safety|safety">BSc Occupational Health &amp; Safety</option>
-                </optgroup>
-                <optgroup label="📚 Other">
-                  <option value="other|other">Other (specify below)</option>
-                </optgroup>
-              </select>
-              <input type="text" id="su-prog-other" placeholder="Type your program e.g. BSc Physics" class="hidden mt-1.5 w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition">
-            </div>
-            <!-- Internship / attachment experience -->
-            <div>
-              <label class="block text-xs font-medium text-gray-400 mb-1">Industrial Attachment / Internship <span class="text-mut font-normal">(optional)</span></label>
-              <select id="su-intern-yn" onchange="handleInternChange(this)" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-acc/50 transition appearance-none cursor-pointer">
-                <option value="">Have you done any? Select...</option>
-                <option value="yes">Yes — I've done industrial attachment or internship</option>
-                <option value="no">No — not yet</option>
-              </select>
-              <textarea id="su-intern-detail" rows="2" placeholder="Where did you intern, what did you do, and for how long? e.g. VRA, 3 months, electrical maintenance" class="hidden mt-1.5 w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 resize-none transition"></textarea>
-            </div>
-            <div><label class="block text-xs font-medium text-gray-400 mb-1">Email</label><input type="email" id="su-email" placeholder="you@example.com" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition"></div>
-            <div><label class="block text-xs font-medium text-gray-400 mb-1">Password (min 6)</label><input type="password" id="su-pass" placeholder="••••••••" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition"></div>
-            <button onclick="handleSignup()" id="btn-su" class="w-full bg-acc hover:bg-acc-h text-bg font-semibold py-2.5 rounded-xl text-sm transition">Create Account</button>
-        </div>
+    <h1 class="text-2xl font-black grad-text mb-1">NS Interview Prep</h1>
+    <p class="text-mut text-xs leading-relaxed">AI-powered mock interviews for Ghanaian<br>engineering & science graduates</p>
+  </div>
+  <div class="rounded-2xl p-5" style="background:rgba(19,19,31,.95);border:1px solid #2d2d4e;backdrop-filter:blur(12px)">
+    <div class="flex mb-4 rounded-xl p-0.5" style="background:#1a1a2e">
+      <button class="flex-1 py-2 rounded-lg text-sm font-semibold transition" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff" id="tab-login" onclick="switchAuthTab('login')">Sign In</button>
+      <button class="flex-1 py-2 rounded-lg text-sm font-semibold transition text-mut hover:text-white" id="tab-signup" onclick="switchAuthTab('signup')">Create Account</button>
     </div>
+    <div id="auth-err" class="hidden pw text-xs mb-3"></div>
+    <!-- LOGIN -->
+    <div id="form-login" class="space-y-3">
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 mb-1.5">Email</label>
+        <input type="email" id="li-email" placeholder="you@example.com" class="w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e;focus:border-color:#7c3aed">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 mb-1.5">Password</label>
+        <input type="password" id="li-pass" placeholder="••••••••" class="w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e">
+      </div>
+      <button onclick="handleLogin()" id="btn-li" class="w-full py-3 rounded-xl text-sm font-bold text-white transition btn-glow" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);box-shadow:0 4px 20px rgba(124,58,237,.3)">Sign In</button>
+    </div>
+    <!-- SIGNUP -->
+    <div id="form-signup" class="hidden space-y-3">
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 mb-1.5">Full Name</label>
+        <input type="text" id="su-name" placeholder="Kwame Mensah" class="w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 mb-1.5">University</label>
+        <select id="su-uni" onchange="handleUniChange(this)" class="w-full rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none transition cursor-pointer" style="background:#1a1a2e;border:1px solid #2d2d4e">
+          <option value="">Select university...</option>
+          <option>University of Energy and Natural Resources (UENR)</option>
+          <option>Kwame Nkrumah University of Science and Technology (KNUST)</option>
+          <option>University of Ghana (Legon)</option>
+          <option>University of Cape Coast (UCC)</option>
+          <option>University of Mines and Technology (UMaT)</option>
+          <option>University of Development Studies (UDS)</option>
+          <option>University of Education, Winneba (UEW)</option>
+          <option>University of Professional Studies, Accra (UPSA)</option>
+          <option>Accra Technical University</option>
+          <option>Takoradi Technical University</option>
+          <option>Kumasi Technical University</option>
+          <option>Ho Technical University</option>
+          <option>Koforidua Technical University</option>
+          <option>Catholic University of Ghana</option>
+          <option>Methodist University College</option>
+          <option>Central University</option>
+          <option>Lancaster University Ghana</option>
+          <option>Regent University</option>
+          <option>All Nations University</option>
+          <option>Valley View University</option>
+          <option value="other">Other</option>
+        </select>
+        <input type="text" id="su-uni-other" placeholder="Type your university name" class="hidden mt-1.5 w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 mb-1.5">Program of Study</label>
+        <select id="su-prog" onchange="handleProgChange(this)" class="w-full rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none transition cursor-pointer" style="background:#1a1a2e;border:1px solid #2d2d4e">
+          <option value="">Select program...</option>
+          <optgroup label="⚡ Electrical / Electronic / Energy">
+            <option value="BSc Electrical &amp; Electronic Engineering|electrical">BSc Electrical &amp; Electronic Engineering</option>
+            <option value="BSc Electrical Engineering|electrical">BSc Electrical Engineering</option>
+            <option value="BSc Renewable Energy Engineering|electrical">BSc Renewable Energy Engineering</option>
+            <option value="BSc Energy Systems Engineering|electrical">BSc Energy Systems Engineering</option>
+            <option value="BSc Power Systems Engineering|electrical">BSc Power Systems Engineering</option>
+          </optgroup>
+          <optgroup label="💻 Computer / IT">
+            <option value="BSc Computer Engineering|computer">BSc Computer Engineering</option>
+            <option value="BSc Computer Science|computer">BSc Computer Science</option>
+            <option value="BSc Information Technology|computer">BSc Information Technology</option>
+            <option value="BSc Telecommunications Engineering|computer">BSc Telecommunications Engineering</option>
+            <option value="Diploma in Information Technology|computer">Diploma in IT</option>
+          </optgroup>
+          <optgroup label="⚙️ Mechanical / Industrial">
+            <option value="BSc Mechanical Engineering|mechanical">BSc Mechanical Engineering</option>
+            <option value="BSc Industrial Engineering|mechanical">BSc Industrial Engineering</option>
+            <option value="BSc Manufacturing Engineering|mechanical">BSc Manufacturing Engineering</option>
+            <option value="BSc Marine Engineering|mechanical">BSc Marine Engineering</option>
+            <option value="BSc Aerospace Engineering|aerospace">BSc Aerospace Engineering</option>
+          </optgroup>
+          <optgroup label="🏗️ Civil / Structural">
+            <option value="BSc Civil Engineering|civil">BSc Civil Engineering</option>
+            <option value="BSc Structural Engineering|civil">BSc Structural Engineering</option>
+            <option value="BSc Construction Engineering|civil">BSc Construction Engineering</option>
+            <option value="BSc Water Resources Engineering|civil">BSc Water Resources Engineering</option>
+          </optgroup>
+          <optgroup label="⛏️ Mining / Geological">
+            <option value="BSc Mining Engineering|mining">BSc Mining Engineering</option>
+            <option value="BSc Sustainable Mining|mining">BSc Sustainable Mining</option>
+            <option value="BSc Urban Mining|mining">BSc Urban Mining</option>
+            <option value="BSc Geological Engineering|geomatic">BSc Geological Engineering</option>
+            <option value="BSc Geomatics Engineering|geomatic">BSc Geomatics Engineering</option>
+          </optgroup>
+          <optgroup label="🌱 Agricultural / Environmental">
+            <option value="BSc Agricultural Engineering|agricultural">BSc Agricultural Engineering</option>
+            <option value="BSc Environmental Engineering|agricultural">BSc Environmental Engineering</option>
+            <option value="BSc Natural Resource Management|agricultural">BSc Natural Resource Management</option>
+            <option value="BSc Agriculture|agricultural">BSc Agriculture</option>
+            <option value="BSc Climate Science|agricultural">BSc Climate Science</option>
+          </optgroup>
+          <optgroup label="🧪 Chemical / Petroleum">
+            <option value="BSc Chemical Engineering|chemical">BSc Chemical Engineering</option>
+            <option value="BSc Petroleum Engineering|petroleum">BSc Petroleum Engineering</option>
+            <option value="BSc Petrochemical Engineering|petroleum">BSc Petrochemical Engineering</option>
+            <option value="BSc Process Engineering|chemical">BSc Process Engineering</option>
+          </optgroup>
+          <optgroup label="🩺 Biomedical / Materials">
+            <option value="BSc Biomedical Engineering|biomedical">BSc Biomedical Engineering</option>
+            <option value="BSc Materials Engineering|materials">BSc Materials Engineering</option>
+            <option value="BSc Metallurgical Engineering|materials">BSc Metallurgical Engineering</option>
+          </optgroup>
+          <optgroup label="🏥 Health Sciences">
+            <option value="BSc Nursing|health">BSc Nursing</option>
+            <option value="Diploma in Nursing|health">Diploma in Nursing</option>
+            <option value="BSc Medical Laboratory Science|health">BSc Medical Laboratory Science</option>
+            <option value="BSc Public Health|health">BSc Public Health</option>
+            <option value="BSc Pharmacy|health">BSc Pharmacy</option>
+            <option value="BSc Biological Science|health">BSc Biological Science</option>
+            <option value="BSc Chemistry|health">BSc Chemistry</option>
+          </optgroup>
+          <optgroup label="📊 Business / Management">
+            <option value="BSc Accounting|business">BSc Accounting</option>
+            <option value="BSc Economics|business">BSc Economics</option>
+            <option value="BSc Business Administration|business">BSc Business Administration</option>
+            <option value="BSc Entrepreneurship|business">BSc Entrepreneurship</option>
+            <option value="BSc Hospitality Management|business">BSc Hospitality Management</option>
+          </optgroup>
+          <optgroup label="🔒 Safety / Disaster Management">
+            <option value="BSc Fire Safety &amp; Disaster Management|safety">BSc Fire Safety &amp; Disaster Management</option>
+            <option value="BSc Occupational Health &amp; Safety|safety">BSc Occupational Health &amp; Safety</option>
+          </optgroup>
+          <optgroup label="📚 Other">
+            <option value="other|other">Other — specify below</option>
+          </optgroup>
+        </select>
+        <input type="text" id="su-prog-other" placeholder="e.g. BSc Physics" class="hidden mt-1.5 w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 mb-1.5">Email</label>
+        <input type="email" id="su-email" placeholder="you@example.com" class="w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 mb-1.5">Password <span class="text-slate-600 font-normal">(min 6 chars)</span></label>
+        <input type="password" id="su-pass" placeholder="••••••••" class="w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e">
+      </div>
+      <button onclick="handleSignup()" id="btn-su" class="w-full py-3 rounded-xl text-sm font-bold text-white transition btn-glow" style="background:linear-gradient(135deg,#7c3aed,#06b6d4);box-shadow:0 4px 20px rgba(124,58,237,.3)">Create Account</button>
+    </div>
+  </div>
 </div>
 </div>
 
 <!-- STUDENT DASHBOARD -->
-<div id="s-dash" class="scr flex-col pt-12 px-4 py-5">
+<div id="s-dash" class="scr flex-col pt-12 px-4 py-5 pb-safe">
 <div class="max-w-3xl mx-auto w-full space-y-4">
-    <div><h1 class="text-lg font-bold" id="dash-greet">Welcome!</h1><p class="text-mut text-xs mt-0.5">Track progress and prepare for national service.</p></div>
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <div class="sc-card"><div class="sc-n text-white" id="ds-sess">0</div><div class="sc-l">Interviews</div></div>
-        <div class="sc-card"><div class="sc-n text-acc" id="ds-avg">—</div><div class="sc-l">Avg Score</div></div>
-        <div class="sc-card"><div class="sc-n text-ok" id="ds-best">—</div><div class="sc-l">Best Score</div></div>
-        <div class="sc-card"><div class="sc-n text-purple-400" id="ds-tests">0</div><div class="sc-l">Tests Done</div></div>
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-black" id="dash-greet">Welcome!</h1>
+      <p class="text-slate-500 text-xs mt-0.5">Your national service interview command centre</p>
     </div>
-    <!-- Readiness meter -->
-    <div id="readiness-wrap" class="hidden bg-card border border-bdr rounded-xl p-3">
-      <div class="flex items-center justify-between mb-2"><span class="text-xs font-semibold text-gray-400">Interview Readiness</span><span class="text-xs font-bold text-acc" id="readiness-pct">—</span></div>
-      <div class="bt"><div class="bf bg-acc" id="readiness-bar" style="width:0%"></div></div>
-      <p class="text-[10px] text-mut mt-1.5" id="readiness-tip">Complete interviews to unlock your readiness score.</p>
+    <button onclick="showScreen('setup')" class="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-white btn-glow" style="background:linear-gradient(135deg,#7c3aed,#06b6d4);box-shadow:0 4px 16px rgba(124,58,237,.3)">
+      <i class="fa-solid fa-plus"></i><span class="hide-sm">New</span>
+    </button>
+  </div>
+  <!-- Stats -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+    <div class="sc-card"><div class="sc-n text-white" id="ds-sess">0</div><div class="sc-l">Interviews</div></div>
+    <div class="sc-card"><div class="sc-n grad-text" id="ds-avg">—</div><div class="sc-l">Avg Score</div></div>
+    <div class="sc-card"><div class="sc-n text-emerald-400" id="ds-best">—</div><div class="sc-l">Best Score</div></div>
+    <div class="sc-card"><div class="sc-n text-cyan-400" id="ds-tests">0</div><div class="sc-l">Tests Done</div></div>
+  </div>
+  <!-- Readiness meter -->
+  <div id="readiness-wrap" class="hidden rounded-xl p-4" style="background:linear-gradient(135deg,rgba(124,58,237,.08),rgba(6,182,212,.05));border:1px solid rgba(124,58,237,.2)">
+    <div class="flex items-center justify-between mb-2">
+      <div class="flex items-center gap-2"><i class="fa-solid fa-chart-line text-violet-400 text-xs"></i><span class="text-xs font-bold text-slate-300">Interview Readiness</span></div>
+      <span class="text-sm font-black grad-text" id="readiness-pct">—</span>
     </div>
-    <!-- Scheduled -->
-    <div id="sched-sec" class="hidden">
-        <h2 class="text-xs font-semibold text-gray-400 mb-2">Upcoming Scheduled</h2>
-        <div class="bg-card border border-bdr rounded-xl overflow-hidden" id="sched-list"></div>
+    <div class="bt"><div class="bf" id="readiness-bar" style="width:0%;background:linear-gradient(90deg,#7c3aed,#06b6d4)"></div></div>
+    <p class="text-[10px] text-slate-500 mt-1.5 leading-relaxed" id="readiness-tip">Complete interviews to unlock your readiness score.</p>
+  </div>
+  <!-- Scheduled -->
+  <div id="sched-sec" class="hidden">
+    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">⏰ Upcoming Scheduled</h2>
+    <div class="rounded-xl overflow-hidden" style="background:#13131f;border:1px solid #2d2d4e" id="sched-list"></div>
+  </div>
+  <!-- Trend -->
+  <div>
+    <div class="flex items-center justify-between mb-2">
+      <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider">📈 Score Trend</h2>
     </div>
-    <div class="flex items-center justify-between"><h2 class="text-xs font-semibold text-gray-400">Score Trend</h2><button onclick="showScreen('setup')" class="bg-acc hover:bg-acc-h text-bg font-semibold px-3 py-1.5 rounded-lg text-xs transition"><i class="fa-solid fa-plus mr-1"></i>New Interview</button></div>
-    <div class="bg-card border border-bdr rounded-xl p-3"><canvas id="trend-cv" width="600" height="80" class="w-full" style="max-height:80px"></canvas><p class="text-xs text-mut text-center mt-1" id="trend-empty">Complete interviews to see trends</p></div>
-    <h2 class="text-xs font-semibold text-gray-400">Recent Sessions</h2>
-    <!-- Quick tips -->
-    <div id="tip-card" class="bg-card border border-bdr rounded-xl p-3 flex items-start gap-3">
-      <div class="w-8 h-8 rounded-lg bg-acc/10 border border-acc/20 flex items-center justify-center shrink-0"><i class="fa-solid fa-lightbulb text-acc text-xs"></i></div>
-      <div><p class="text-xs font-semibold text-gray-300 mb-0.5">Interview Tip</p><p class="text-[11px] text-mut leading-relaxed" id="tip-text">Loading tip...</p></div>
+    <div class="rounded-xl p-3" style="background:#13131f;border:1px solid #2d2d4e">
+      <canvas id="trend-cv" width="600" height="80" class="w-full" style="max-height:80px"></canvas>
+      <p class="text-xs text-slate-600 text-center mt-1" id="trend-empty">Complete interviews to see your progress</p>
     </div>
-    <div class="bg-card border border-bdr rounded-xl overflow-hidden" id="dash-sessions"><div class="p-5 text-center text-xs text-mut">No interviews yet.</div></div>
+  </div>
+  <!-- Tip -->
+  <div id="tip-card" class="rounded-xl p-3 flex items-start gap-3" style="background:linear-gradient(135deg,rgba(245,158,11,.06),rgba(251,191,36,.03));border:1px solid rgba(245,158,11,.15)">
+    <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background:rgba(245,158,11,.15)"><i class="fa-solid fa-lightbulb text-amber-400 text-xs"></i></div>
+    <div><p class="text-xs font-bold text-amber-300 mb-0.5">Interview Tip of the Day</p><p class="text-[11px] text-slate-400 leading-relaxed" id="tip-text">Loading tip...</p></div>
+  </div>
+  <!-- Recent Sessions -->
+  <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider">🎯 Recent Sessions</h2>
+  <div class="rounded-xl overflow-hidden" style="background:#13131f;border:1px solid #2d2d4e" id="dash-sessions">
+    <div class="p-6 text-center text-xs text-slate-600">No interviews yet — start your first one!</div>
+  </div>
 </div>
 </div>
 
 <!-- APTITUDE TESTS -->
-<div id="s-tests" class="scr flex-col pt-12 px-4 py-5">
+<div id="s-tests" class="scr flex-col pt-12 px-4 py-5 pb-safe">
 <div class="max-w-3xl mx-auto w-full space-y-4">
-    <div><h1 class="text-lg font-bold">Aptitude Tests</h1><p class="text-mut text-xs mt-0.5">Sharpen your reasoning and technical knowledge.</p></div>
-    <div class="bg-card border border-bdr rounded-xl overflow-hidden" id="tests-list"><div class="p-5 text-center text-xs text-mut">No tests available.</div></div>
+  <div>
+    <h1 class="text-xl font-black grad-text">Aptitude Tests</h1>
+    <p class="text-slate-500 text-xs mt-0.5">Sharpen your reasoning and field knowledge</p>
+  </div>
+  <div class="rounded-xl overflow-hidden" style="background:#13131f;border:1px solid #2d2d4e" id="tests-list">
+    <div class="p-6 text-center text-xs text-slate-600">No tests available yet.</div>
+  </div>
 </div>
 </div>
 
 <!-- SESSION DETAIL -->
-<div id="s-detail" class="scr flex-col pt-12 px-4 py-5">
+<div id="s-detail" class="scr flex-col pt-12 px-4 py-5 pb-safe">
 <div class="max-w-3xl mx-auto w-full space-y-4">
-    <button onclick="showScreen('dash')" class="text-xs text-mut hover:text-white transition"><i class="fa-solid fa-arrow-left mr-1"></i>Back</button>
-    <div class="flex items-center justify-between"><h1 class="text-base font-bold" id="det-title">Session</h1><span class="fb" id="det-field"></span></div>
-    <!-- Video playback -->
-    <div id="det-vid-wrap" class="hidden bg-card border border-bdr rounded-xl overflow-hidden"><div class="px-3 py-2 border-b border-bdr/50 flex items-center gap-2"><i class="fa-solid fa-video text-acc text-xs"></i><span class="text-xs font-semibold text-gray-400">Recording Playback</span></div><video id="det-vid" controls class="w-full max-h-80 bg-black" style="transform:scaleX(-1)"></video></div>
-    <div class="flex justify-center"><div class="relative"><svg width="130" height="130" viewBox="0 0 130 130"><circle class="sc-bg" cx="65" cy="65" r="54"/><circle class="sc-ar" id="det-arc" cx="65" cy="65" r="54" stroke-dasharray="339.29" stroke-dashoffset="339.29"/></svg><div class="absolute inset-0 flex flex-col items-center justify-center"><span class="text-2xl font-black" id="det-score">0</span><span class="text-xs text-mut">/ 100</span></div></div></div>
-    <div id="det-subs" class="bg-card border border-bdr rounded-xl p-3 space-y-2"></div>
-    <div class="bg-card border border-bdr rounded-xl p-3"><h3 class="text-xs font-semibold mb-1 text-gray-400">Feedback</h3><p class="text-xs text-mut leading-relaxed" id="det-fb">—</p></div>
-    <div class="bg-card border border-bdr rounded-xl p-3"><h3 class="text-xs font-semibold mb-1 text-gray-400">Improvements</h3><ul class="text-xs text-mut space-y-1" id="det-imp"></ul></div>
-    <details class="bg-card border border-bdr rounded-xl p-3"><summary class="text-xs font-semibold text-gray-400 cursor-pointer">Full Transcript</summary><div class="mt-2 space-y-2 text-xs" id="det-trans"></div></details>
+  <button onclick="showScreen('dash')" class="flex items-center gap-2 text-xs text-slate-500 hover:text-white transition font-medium">
+    <i class="fa-solid fa-arrow-left"></i>Back to Dashboard
+  </button>
+  <div class="flex items-center justify-between flex-wrap gap-2">
+    <h1 class="text-base font-bold" id="det-title">Session</h1>
+    <span class="fb" id="det-field"></span>
+  </div>
+  <!-- Video -->
+  <div id="det-vid-wrap" class="hidden rounded-xl overflow-hidden" style="background:#13131f;border:1px solid #2d2d4e">
+    <div class="px-3 py-2 flex items-center gap-2" style="border-bottom:1px solid #2d2d4e">
+      <i class="fa-solid fa-video text-violet-400 text-xs"></i>
+      <span class="text-xs font-semibold text-slate-400">Recording Playback</span>
+    </div>
+    <video id="det-vid" controls class="w-full bg-black" style="max-height:280px;transform:scaleX(-1)"></video>
+  </div>
+  <!-- Score circle -->
+  <div class="flex justify-center">
+    <div class="relative">
+      <svg width="130" height="130" viewBox="0 0 130 130">
+        <circle class="sc-bg" cx="65" cy="65" r="54"/>
+        <circle class="sc-ar" id="det-arc" cx="65" cy="65" r="54" stroke-dasharray="339.29" stroke-dashoffset="339.29"/>
+      </svg>
+      <div class="absolute inset-0 flex flex-col items-center justify-center">
+        <span class="text-2xl font-black grad-text" id="det-score">0</span>
+        <span class="text-[10px] text-slate-500">/ 100</span>
+      </div>
+    </div>
+  </div>
+  <div id="det-subs" class="rounded-xl p-4 space-y-2.5" style="background:#13131f;border:1px solid #2d2d4e"></div>
+  <div class="rounded-xl p-4" style="background:#13131f;border:1px solid #2d2d4e">
+    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Feedback</h3>
+    <p class="text-sm text-slate-300 leading-relaxed" id="det-fb">—</p>
+  </div>
+  <div class="rounded-xl p-4" style="background:#13131f;border:1px solid #2d2d4e">
+    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Areas to Improve</h3>
+    <ul class="space-y-1.5" id="det-imp"></ul>
+  </div>
+  <details class="rounded-xl p-4" style="background:#13131f;border:1px solid #2d2d4e">
+    <summary class="text-xs font-bold text-slate-400 uppercase tracking-wider cursor-pointer">Full Transcript</summary>
+    <div class="mt-3 space-y-2" id="det-trans"></div>
+  </details>
 </div>
 </div>
 
 <!-- ADMIN DASHBOARD -->
-<div id="s-admin" class="scr flex-col pt-12 px-4 py-5">
+<div id="s-admin" class="scr flex-col pt-12 px-4 py-5 pb-safe">
 <div class="max-w-4xl mx-auto w-full space-y-4">
-    <div><h1 class="text-lg font-bold">Admin Dashboard</h1><p class="text-mut text-xs mt-0.5">Monitor usage and manage content.</p></div>
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <div class="sc-card"><div class="sc-n text-white" id="ad-users">0</div><div class="sc-l">Users</div></div>
-        <div class="sc-card"><div class="sc-n text-acc" id="ad-sess">0</div><div class="sc-l">Interviews</div></div>
-        <div class="sc-card"><div class="sc-n text-ok" id="ad-avg">—</div><div class="sc-l">Avg Score</div></div>
-        <div class="sc-card"><div class="sc-n text-purple-400" id="ad-tests">0</div><div class="sc-l">Tests</div></div>
-    </div>
-    <h2 class="text-xs font-semibold text-gray-400">Recent Users</h2>
-    <div class="bg-card border border-bdr rounded-xl overflow-hidden" id="ad-users-list"><div class="p-4 text-center text-xs text-mut">Loading...</div></div>
-    <h2 class="text-xs font-semibold text-gray-400">Student Questions <span class="text-[10px] text-mut font-normal">(unanswered)</span></h2>
-    <div class="bg-card border border-bdr rounded-xl overflow-hidden" id="ad-questions-list"><div class="p-4 text-center text-xs text-mut">Loading...</div></div>
+  <div>
+    <h1 class="text-xl font-black grad-text">Admin Dashboard</h1>
+    <p class="text-slate-500 text-xs mt-0.5">Monitor users and manage platform content</p>
   </div>
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+    <div class="sc-card"><div class="sc-n text-white" id="ad-users">0</div><div class="sc-l">Users</div></div>
+    <div class="sc-card"><div class="sc-n grad-text" id="ad-sess">0</div><div class="sc-l">Interviews</div></div>
+    <div class="sc-card"><div class="sc-n text-emerald-400" id="ad-avg">—</div><div class="sc-l">Avg Score</div></div>
+    <div class="sc-card"><div class="sc-n text-cyan-400" id="ad-tests">0</div><div class="sc-l">Tests</div></div>
+  </div>
+  <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Recent Users</h2>
+  <div class="rounded-xl overflow-hidden" style="background:#13131f;border:1px solid #2d2d4e" id="ad-users-list"><div class="p-4 text-center text-xs text-slate-600">Loading...</div></div>
+  <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Student Questions <span class="text-slate-600 font-normal normal-case">(unanswered)</span></h2>
+  <div class="rounded-xl overflow-hidden" style="background:#13131f;border:1px solid #2d2d4e" id="ad-questions-list"><div class="p-4 text-center text-xs text-slate-600">Loading...</div></div>
+</div>
 </div>
 
 <!-- ADMIN: MANAGE TESTS -->
-<div id="s-mgmt" class="scr flex-col pt-12 px-4 py-5">
+<div id="s-mgmt" class="scr flex-col pt-12 px-4 py-5 pb-safe">
 <div class="max-w-3xl mx-auto w-full space-y-4">
-    <div><h1 class="text-lg font-bold">Manage Aptitude Tests</h1><p class="text-mut text-xs mt-0.5">Add Google Forms, TestMoz, or any test links.</p></div>
-    <div class="bg-card border border-bdr rounded-xl p-4 space-y-3">
-        <h3 class="text-xs font-semibold">Add New Test</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <div><label class="block text-[11px] text-gray-500 mb-0.5">Title</label><input type="text" id="mt-title" placeholder="General Aptitude Test" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/40 transition"></div>
-            <div><label class="block text-[11px] text-gray-500 mb-0.5">Category</label><select id="mt-cat" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-acc/40 transition appearance-none"><option value="general">General</option><option value="technical">Technical</option><option value="behavioral">Behavioral</option><option value="logical">Logical Reasoning</option></select></div>
-        </div>
-        <div><label class="block text-[11px] text-gray-500 mb-0.5">Test URL</label><input type="url" id="mt-url" placeholder="https://forms.gle/..." class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/40 transition"></div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <div><label class="block text-[11px] text-gray-500 mb-0.5">Field (optional)</label><select id="mt-field" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-acc/40 transition appearance-none"><option value="">All Fields</option><option value="electrical">Electrical</option><option value="mechanical">Mechanical</option><option value="mining">Mining</option><option value="civil">Civil</option><option value="computer">Computer</option><option value="chemical">Chemical</option><option value="petroleum">Petroleum</option><option value="aerospace">Aerospace</option><option value="agricultural">Agricultural</option><option value="biomedical">Biomedical</option><option value="geomatic">Geomatic</option><option value="materials">Materials</option></select></div>
-            <div><label class="block text-[11px] text-gray-500 mb-0.5">Description</label><input type="text" id="mt-desc" placeholder="Brief description" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/40 transition"></div>
-        </div>
-        <button onclick="addTest()" class="bg-acc hover:bg-acc-h text-bg font-semibold px-4 py-2 rounded-lg text-xs transition"><i class="fa-solid fa-plus mr-1"></i>Add Test</button>
+  <div>
+    <h1 class="text-xl font-black grad-text">Manage Tests</h1>
+    <p class="text-slate-500 text-xs mt-0.5">Add Google Forms, TestMoz, or any test links</p>
+  </div>
+  <div class="rounded-xl p-4 space-y-3" style="background:#13131f;border:1px solid #2d2d4e">
+    <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Add New Test</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Title</label><input type="text" id="mt-title" placeholder="General Aptitude Test" class="w-full rounded-xl px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e"></div>
+      <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Category</label><select id="mt-cat" class="w-full rounded-xl px-3 py-2 text-sm text-white focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e"><option value="general">General</option><option value="technical">Technical</option><option value="behavioral">Behavioral</option><option value="logical">Logical Reasoning</option></select></div>
     </div>
-    <h2 class="text-xs font-semibold text-gray-400">All Tests</h2>
-    <div class="bg-card border border-bdr rounded-xl overflow-hidden" id="mgmt-list"><div class="p-4 text-center text-xs text-mut">Loading...</div></div>
+    <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Test URL</label><input type="url" id="mt-url" placeholder="https://forms.gle/..." class="w-full rounded-xl px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e"></div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Field</label><select id="mt-field" class="w-full rounded-xl px-3 py-2 text-sm text-white focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e"><option value="">All Fields</option><option value="electrical">Electrical &amp; Electronic</option><option value="computer">Computer / IT</option><option value="mechanical">Mechanical</option><option value="civil">Civil</option><option value="mining">Mining</option><option value="chemical">Chemical</option><option value="petroleum">Petroleum</option><option value="agricultural">Agricultural</option><option value="biomedical">Biomedical</option><option value="geomatic">Geomatic</option><option value="materials">Materials</option><option value="aerospace">Aerospace</option></select></div>
+      <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Description</label><input type="text" id="mt-desc" placeholder="Brief description" class="w-full rounded-xl px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e"></div>
+    </div>
+    <button onclick="addTest()" class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white transition btn-glow" style="background:linear-gradient(135deg,#7c3aed,#06b6d4)"><i class="fa-solid fa-plus"></i>Add Test</button>
+  </div>
+  <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider">All Tests</h2>
+  <div class="rounded-xl overflow-hidden" style="background:#13131f;border:1px solid #2d2d4e" id="mgmt-list"><div class="p-4 text-center text-xs text-slate-600">Loading...</div></div>
 </div>
 </div>
 
 <!-- SETUP -->
-<div id="s-setup" class="scr flex-col items-center justify-center px-4 py-8">
+<div id="s-setup" class="scr flex-col items-center justify-start px-4 py-6 pt-safe pb-safe" style="min-height:100vh">
 <div class="w-full max-w-md">
-    <div id="pw-prot" class="pw" style="display:none"><i class="fa-solid fa-triangle-exclamation mt-0.5 shrink-0"></i><span><strong>Mic won't work</strong> on file://. Use Live Server.</span></div>
-    <div id="pw-stt" class="pw" style="display:none;border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.08)"><i class="fa-solid fa-triangle-exclamation mt-0.5 shrink-0" style="color:#f59e0b"></i><span style="color:#fde68a">Speech recognition not supported. Use <strong>Chrome</strong> or type answers.</span></div>
-    <div id="pw-srv" class="pw" style="display:none;border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.08)"><i class="fa-solid fa-triangle-exclamation mt-0.5 shrink-0" style="color:#f59e0b"></i><span style="color:#fde68a">Backend offline. CV upload disabled. Run <code class="bg-black/40 px-1 rounded text-[10px]">npm run dev</code></span></div>
-    <div class="bg-card border border-bdr rounded-2xl p-4 space-y-3">
-        <h2 class="text-base font-semibold">New Interview</h2>
-        <!-- Duration info banner -->
-        <div class="flex items-center gap-2 p-2.5 bg-elev/60 border border-bdr/60 rounded-lg">
-          <i class="fa-solid fa-clock text-acc text-xs shrink-0"></i>
-          <div class="flex-1"><span class="text-[11px] text-gray-300 font-medium" id="dur-label">12 questions · ~22–30 min</span><p class="text-[10px] text-mut mt-0.5">Depends on how much you elaborate. Real NS interviews run 20–45 min.</p></div>
-        </div>
-        <!-- Question count -->
-        <div><label class="block text-xs font-medium text-gray-400 mb-1.5">Number of Questions</label>
-        <div class="flex gap-2" id="qcount-sel">
-          <button class="flex-1 py-1.5 rounded-lg text-xs font-medium border border-bdr bg-elev text-mut transition hover:border-acc/40" data-q="8">8 <span class="block text-[9px] text-mut/70">~15–20 min</span></button>
-          <button class="flex-1 py-1.5 rounded-lg text-xs font-medium border border-acc bg-acc/10 text-acc transition" data-q="12">12 <span class="block text-[9px] text-acc/70">~22–30 min</span></button>
-          <button class="flex-1 py-1.5 rounded-lg text-xs font-medium border border-bdr bg-elev text-mut transition hover:border-acc/40" data-q="15">15 <span class="block text-[9px] text-mut/70">~28–38 min</span></button>
-          <button class="flex-1 py-1.5 rounded-lg text-xs font-medium border border-bdr bg-elev text-mut transition hover:border-acc/40" data-q="18">18 <span class="block text-[9px] text-mut/70">~35–45 min</span></button>
-        </div></div>
-        <div><label class="block text-xs font-medium text-gray-400 mb-1">Engineering Field</label>
-        <select id="inp-field" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-acc/50 transition appearance-none cursor-pointer">
-            <option value="">Select...</option><option value="electrical">Electrical</option><option value="mechanical">Mechanical</option><option value="mining">Mining</option><option value="civil">Civil</option><option value="computer">Computer</option><option value="chemical">Chemical</option><option value="petroleum">Petroleum</option><option value="aerospace">Aerospace</option><option value="agricultural">Agricultural</option><option value="biomedical">Biomedical</option><option value="geomatic">Geomatic</option><option value="materials">Materials</option>
-        </select></div>
-        <div><label class="block text-xs font-medium text-gray-400 mb-1">Target Company <span class="text-mut font-normal">(optional)</span></label><input type="text" id="inp-company" placeholder="e.g. Volta River Authority" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white placeholder-mut/40 focus:outline-none focus:border-acc/50 transition"></div>
-        <div><label class="block text-xs font-medium text-gray-400 mb-1.5">Interviewer</label>
-        <div class="flex gap-2" id="mode-sel">
-            <div class="md sel" data-m="male"><div class="mdi"><i class="fa-solid fa-user text-blue-400"></i></div><span class="mdl">Male</span><span class="mds">Mr. Osei</span></div>
-            <div class="md" data-m="female"><div class="mdi"><i class="fa-solid fa-user text-pink-400"></i></div><span class="mdl">Female</span><span class="mds">Ms. Amoako</span></div>
-            <div class="md" data-m="random"><div class="mdi"><i class="fa-solid fa-shuffle text-purple-400"></i></div><span class="mdl">Random</span><span class="mds">Mixed</span></div>
-            <div class="md" data-m="team"><div class="mdi"><i class="fa-solid fa-users text-green-400"></i></div><span class="mdl">Panel</span><span class="mds">4 people</span></div>
-        </div></div>
-        <div id="team-prev" class="hidden space-y-1">
-            <div class="flex items-center gap-2 p-1.5 bg-elev/50 rounded text-[11px]"><i class="fa-solid fa-user-tie text-blue-400 w-4"></i><span class="font-medium">Ama Darko</span><span class="text-mut">— Behavioral</span></div>
-            <div class="flex items-center gap-2 p-1.5 bg-elev/50 rounded text-[11px]"><i class="fa-solid fa-hard-hat text-acc w-4"></i><span class="font-medium">Mr. Osei</span><span class="text-mut">— Technical</span></div>
-            <div class="flex items-center gap-2 p-1.5 bg-elev/50 rounded text-[11px]"><i class="fa-solid fa-clipboard-list text-purple-400 w-4"></i><span class="font-medium">Dr. Mensah</span><span class="text-mut">— Experience</span></div>
-            <div class="flex items-center gap-2 p-1.5 bg-elev/50 rounded text-[11px]"><i class="fa-solid fa-gear text-ok w-4"></i><span class="font-medium">Eng. Boateng</span><span class="text-mut">— Scenarios</span></div>
-        </div>
-        <!-- Schedule toggle -->
-        <div class="flex items-center gap-3">
-            <label class="text-xs font-medium text-gray-400">Start now</label>
-            <button id="sched-toggle" onclick="toggleSchedule()" class="w-10 h-5 bg-elev border border-bdr rounded-full relative transition-colors cursor-pointer"><div id="sched-dot" class="w-4 h-4 bg-mut rounded-full absolute top-0.5 left-0.5 transition-all"></div></button>
-            <label class="text-xs font-medium text-gray-400">Schedule</label>
-        </div>
-        <div id="sched-fields" class="hidden grid grid-cols-2 gap-2">
-            <div><label class="block text-[11px] text-gray-500 mb-0.5">Date</label><input type="date" id="inp-sdate" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-acc/40 transition"></div>
-            <div><label class="block text-[11px] text-gray-500 mb-0.5">Time</label><input type="time" id="inp-stime" class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-acc/40 transition"></div>
-        </div>
-        <!-- CV -->
-        <div>
-            <div class="flex items-center justify-between mb-1"><label class="text-xs font-medium text-gray-400">Upload CV <span class="text-mut font-normal">(optional)</span></label><div class="flex items-center gap-1 text-[10px]"><span class="w-1.5 h-1.5 rounded-full bg-mut" id="cv-sd"></span><span class="text-mut" id="cv-sl">Checking...</span></div></div>
-            <div class="cvd" id="cv-drop"><input type="file" id="cv-inp" accept=".pdf,.docx" class="hidden"><div id="cv-dc"><i class="fa-solid fa-cloud-arrow-up text-lg text-mut mb-1"></i><p class="text-[11px] text-mut">Drop CV or click (PDF/DOCX)</p></div><div id="cv-dd" class="hidden"><i class="fa-solid fa-file-circle-check text-lg text-ok mb-1"></i><p class="text-[11px] text-ok font-medium" id="cv-fn"></p><p class="text-[10px] text-mut mt-0.5" id="cv-wc"></p></div></div>
-            <div id="cv-prev" class="hidden mt-1.5 p-2 bg-elev/50 rounded border border-bdr/50"><span class="text-[10px] text-mut font-medium">Skills</span><div class="flex flex-wrap gap-0.5 mt-0.5" id="cv-sk"></div></div>
-        </div>
-        <div class="gl"></div>
-        <button id="btn-mic" class="w-full flex items-center justify-center gap-2 bg-elev hover:bg-surf border border-bdr rounded-lg px-3 py-2 text-xs text-gray-300 transition"><i class="fa-solid fa-microphone text-ok"></i><span>Test Microphone</span></button>
-        <div id="mt-area" class="hidden mta"><canvas id="mt-cv" width="200" height="24" class="rounded mb-1" style="display:block;margin:0 auto"></canvas><p class="text-[10px]" id="mt-st">Click Start</p><div class="flex gap-2 justify-center mt-1"><button type="button" id="mt-go" class="bg-ok/20 text-ok px-3 py-1 rounded text-[10px] hover:bg-ok/30 transition">Start</button><button type="button" id="mt-stop" class="bg-err/20 text-err px-3 py-1 rounded text-[10px] hover:bg-err/30 transition hidden">Stop</button></div></div>
-        <div><button type="button" id="adv-tog" class="flex items-center gap-2 text-[10px] text-mut hover:text-gray-300 transition"><i class="fa-solid fa-gear"></i> Server URL <i class="fa-solid fa-chevron-down text-[8px] transition-transform" id="adv-ch"></i></button><div id="adv-p" class="hidden mt-1 p-2 bg-elev/50 rounded border border-bdr/50"><input type="text" id="inp-srv" value="" placeholder="https://your-app.onrender.com" class="w-full bg-bg border border-bdr rounded-lg px-2 py-1.5 text-[10px] text-white focus:outline-none focus:border-acc/40 transition"></div></div>
-        <div class="gl"></div>
-        <button id="btn-start" disabled class="w-full bg-acc hover:bg-acc-h disabled:bg-mut/30 disabled:text-mut disabled:cursor-not-allowed text-bg font-semibold py-2.5 rounded-xl transition-all text-sm">Start Interview</button>
-        <button id="btn-schedule" class="hidden w-full bg-elev hover:bg-surf border border-bdr text-gray-300 font-semibold py-2.5 rounded-xl transition-all text-sm">Schedule Interview</button>
+  <div class="text-center mb-5">
+    <h1 class="text-xl font-black grad-text">New Interview</h1>
+    <p class="text-slate-500 text-xs mt-1">Configure your mock session</p>
+  </div>
+  <!-- Warnings -->
+  <div id="pw-prot" class="pw" style="display:none"><i class="fa-solid fa-triangle-exclamation mt-0.5 shrink-0"></i><span>Mic won't work on file://. Use a server.</span></div>
+  <div id="pw-stt" class="pw" style="display:none;border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.07)"><i class="fa-solid fa-triangle-exclamation mt-0.5 shrink-0" style="color:#f59e0b"></i><span style="color:#fde68a">Speech recognition unavailable. Use Chrome, or type your answers.</span></div>
+  <div id="pw-srv" class="pw" style="display:none;border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.07)"><i class="fa-solid fa-triangle-exclamation mt-0.5 shrink-0" style="color:#f59e0b"></i><span style="color:#fde68a">Backend offline. CV upload disabled.</span></div>
+
+  <div class="rounded-2xl p-5 space-y-4" style="background:rgba(19,19,31,.95);border:1px solid #2d2d4e">
+    <!-- Duration banner -->
+    <div class="flex items-center gap-3 p-3 rounded-xl" style="background:linear-gradient(135deg,rgba(124,58,237,.08),rgba(6,182,212,.05));border:1px solid rgba(124,58,237,.15)">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background:rgba(124,58,237,.2)"><i class="fa-solid fa-clock text-violet-400 text-xs"></i></div>
+      <div><span class="text-xs font-bold text-slate-200" id="dur-label">12 questions · ~22–30 min</span><p class="text-[10px] text-slate-500 mt-0.5">Depends on how much you elaborate</p></div>
     </div>
+
+    <!-- Program / Field -->
+    <div>
+      <label class="block text-xs font-bold text-slate-400 mb-1.5">Your Field / Program</label>
+      <select id="inp-field" class="w-full rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none transition cursor-pointer" style="background:#1a1a2e;border:1px solid #2d2d4e" onchange="handleSetupFieldChange(this)">
+        <option value="">Select your field...</option>
+        <optgroup label="⚡ Electrical / Electronic / Energy">
+          <option value="electrical">BSc Electrical &amp; Electronic Engineering</option>
+          <option value="electrical">BSc Renewable Energy Engineering</option>
+          <option value="electrical">BSc Energy Systems Engineering</option>
+        </optgroup>
+        <optgroup label="💻 Computer / IT">
+          <option value="computer">BSc Computer Engineering</option>
+          <option value="computer">BSc Computer Science</option>
+          <option value="computer">BSc Information Technology</option>
+          <option value="computer">BSc Telecommunications Engineering</option>
+        </optgroup>
+        <optgroup label="⚙️ Mechanical / Industrial">
+          <option value="mechanical">BSc Mechanical Engineering</option>
+          <option value="mechanical">BSc Industrial Engineering</option>
+          <option value="mechanical">BSc Marine Engineering</option>
+          <option value="aerospace">BSc Aerospace Engineering</option>
+        </optgroup>
+        <optgroup label="🏗️ Civil / Structural">
+          <option value="civil">BSc Civil Engineering</option>
+          <option value="civil">BSc Structural Engineering</option>
+          <option value="civil">BSc Water Resources Engineering</option>
+        </optgroup>
+        <optgroup label="⛏️ Mining / Geological">
+          <option value="mining">BSc Mining Engineering</option>
+          <option value="mining">BSc Sustainable Mining</option>
+          <option value="geomatic">BSc Geomatics Engineering</option>
+          <option value="geomatic">BSc Geological Engineering</option>
+        </optgroup>
+        <optgroup label="🌱 Agricultural / Environmental">
+          <option value="agricultural">BSc Agricultural Engineering</option>
+          <option value="agricultural">BSc Environmental Engineering</option>
+          <option value="agricultural">BSc Natural Resource Management</option>
+          <option value="agricultural">BSc Agriculture</option>
+        </optgroup>
+        <optgroup label="🧪 Chemical / Petroleum">
+          <option value="chemical">BSc Chemical Engineering</option>
+          <option value="petroleum">BSc Petroleum Engineering</option>
+          <option value="petroleum">BSc Petrochemical Engineering</option>
+        </optgroup>
+        <optgroup label="🩺 Biomedical / Materials">
+          <option value="biomedical">BSc Biomedical Engineering</option>
+          <option value="materials">BSc Materials Engineering</option>
+          <option value="materials">BSc Metallurgical Engineering</option>
+        </optgroup>
+        <optgroup label="🏥 Health Sciences">
+          <option value="health">BSc Nursing / Medical Lab Science</option>
+          <option value="health">BSc Public Health</option>
+          <option value="health">BSc Biological Science / Chemistry</option>
+        </optgroup>
+        <optgroup label="📊 Business / Management">
+          <option value="business">BSc Accounting / Economics</option>
+          <option value="business">BSc Business Administration</option>
+          <option value="business">BSc Entrepreneurship</option>
+        </optgroup>
+        <optgroup label="🔒 Safety">
+          <option value="safety">BSc Fire Safety &amp; Disaster Management</option>
+          <option value="safety">BSc Occupational Health &amp; Safety</option>
+        </optgroup>
+      </select>
+    </div>
+
+    <!-- Question count -->
+    <div>
+      <label class="block text-xs font-bold text-slate-400 mb-2">Number of Questions</label>
+      <div class="grid grid-cols-4 gap-2" id="qcount-sel">
+        <button class="py-2.5 rounded-xl text-xs font-bold border transition" style="border-color:#2d2d4e;background:#1a1a2e;color:#6b7280" data-q="8">8<span class="block text-[9px] opacity-60 mt-0.5">~15 min</span></button>
+        <button class="py-2.5 rounded-xl text-xs font-bold border transition" style="border-color:#7c3aed;background:rgba(124,58,237,.12);color:#a78bfa" data-q="12">12<span class="block text-[9px] opacity-70 mt-0.5">~25 min</span></button>
+        <button class="py-2.5 rounded-xl text-xs font-bold border transition" style="border-color:#2d2d4e;background:#1a1a2e;color:#6b7280" data-q="15">15<span class="block text-[9px] opacity-60 mt-0.5">~32 min</span></button>
+        <button class="py-2.5 rounded-xl text-xs font-bold border transition" style="border-color:#2d2d4e;background:#1a1a2e;color:#6b7280" data-q="18">18<span class="block text-[9px] opacity-60 mt-0.5">~40 min</span></button>
+      </div>
+    </div>
+
+    <!-- Company -->
+    <div>
+      <label class="block text-xs font-bold text-slate-400 mb-1.5">Target Company <span class="text-slate-600 font-normal">(optional)</span></label>
+      <input type="text" id="inp-company" placeholder="e.g. Volta River Authority, GNPC, GES" class="w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e">
+    </div>
+
+    <!-- Interviewer mode -->
+    <div>
+      <label class="block text-xs font-bold text-slate-400 mb-2">Interviewer Style</label>
+      <div class="grid grid-cols-4 gap-2" id="mode-sel">
+        <div class="md sel" data-m="male"><div class="mdi">👨🏿</div><span class="mdl">Male</span><span class="mds">Mr. Osei</span></div>
+        <div class="md" data-m="female"><div class="mdi">👩🏿</div><span class="mdl">Female</span><span class="mds">Ms. Amoako</span></div>
+        <div class="md" data-m="random"><div class="mdi">🎲</div><span class="mdl">Random</span><span class="mds">Mixed</span></div>
+        <div class="md" data-m="team"><div class="mdi">👥</div><span class="mdl">Panel</span><span class="mds">4 people</span></div>
+      </div>
+    </div>
+    <!-- Panel preview -->
+    <div id="team-prev" class="hidden space-y-1.5">
+      <div class="flex items-center gap-2 p-2 rounded-lg text-[11px]" style="background:#1a1a2e;border:1px solid #2d2d4e"><span class="text-blue-400">👩🏿‍💼</span><span class="font-semibold text-slate-300">Ama Darko</span><span class="text-slate-500">— Behavioral</span></div>
+      <div class="flex items-center gap-2 p-2 rounded-lg text-[11px]" style="background:#1a1a2e;border:1px solid #2d2d4e"><span class="text-amber-400">👨🏿‍🔧</span><span class="font-semibold text-slate-300">Mr. Osei</span><span class="text-slate-500">— Technical</span></div>
+      <div class="flex items-center gap-2 p-2 rounded-lg text-[11px]" style="background:#1a1a2e;border:1px solid #2d2d4e"><span class="text-purple-400">👨🏿‍💼</span><span class="font-semibold text-slate-300">Dr. Mensah</span><span class="text-slate-500">— Experience</span></div>
+      <div class="flex items-center gap-2 p-2 rounded-lg text-[11px]" style="background:#1a1a2e;border:1px solid #2d2d4e"><span class="text-emerald-400">👨🏿‍🏭</span><span class="font-semibold text-slate-300">Eng. Boateng</span><span class="text-slate-500">— Scenarios</span></div>
+    </div>
+
+    <!-- Schedule toggle -->
+    <div class="flex items-center gap-3">
+      <span class="text-xs font-semibold text-slate-400">Start now</span>
+      <button id="sched-toggle" onclick="toggleSchedule()" class="w-11 h-6 rounded-full relative transition-all cursor-pointer" style="background:#1a1a2e;border:1px solid #2d2d4e"><div id="sched-dot" class="w-4 h-4 rounded-full absolute top-0.5 left-0.5 transition-all" style="background:#6b7280"></div></button>
+      <span class="text-xs font-semibold text-slate-400">Schedule</span>
+    </div>
+    <div id="sched-fields" class="hidden grid grid-cols-2 gap-2.5">
+      <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Date</label><input type="date" id="inp-sdate" class="w-full rounded-xl px-3 py-2 text-sm text-white focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e"></div>
+      <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Time</label><input type="time" id="inp-stime" class="w-full rounded-xl px-3 py-2 text-sm text-white focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e"></div>
+    </div>
+
+    <!-- CV upload -->
+    <div>
+      <div class="flex items-center justify-between mb-1.5">
+        <label class="text-xs font-bold text-slate-400">Upload CV <span class="text-slate-600 font-normal">(optional)</span></label>
+        <div class="flex items-center gap-1.5 text-[10px]"><span class="w-1.5 h-1.5 rounded-full" id="cv-sd" style="background:#6b7280"></span><span class="text-slate-500" id="cv-sl">Checking...</span></div>
+      </div>
+      <div class="cvd" id="cv-drop">
+        <input type="file" id="cv-inp" accept=".pdf,.docx" class="hidden">
+        <div id="cv-dc"><i class="fa-solid fa-cloud-arrow-up text-xl text-slate-600 mb-1.5"></i><p class="text-xs text-slate-500">Drop CV here or tap to browse<br><span class="text-[10px] text-slate-600">PDF or DOCX · max 10MB</span></p></div>
+        <div id="cv-dd" class="hidden"><i class="fa-solid fa-file-circle-check text-xl text-emerald-400 mb-1.5"></i><p class="text-xs text-emerald-400 font-semibold" id="cv-fn"></p><p class="text-[10px] text-slate-500 mt-0.5" id="cv-wc"></p></div>
+      </div>
+      <div id="cv-prev" class="hidden mt-2 p-2.5 rounded-xl" style="background:#1a1a2e;border:1px solid #2d2d4e"><span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Detected Skills</span><div class="flex flex-wrap gap-1 mt-1.5" id="cv-sk"></div></div>
+    </div>
+
+    <div class="gl"></div>
+
+    <!-- Mic test -->
+    <button id="btn-mic" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-slate-300 transition" style="background:#1a1a2e;border:1px solid #2d2d4e">
+      <i class="fa-solid fa-microphone text-emerald-400"></i>Test Microphone
+    </button>
+    <div id="mt-area" class="hidden mta">
+      <canvas id="mt-cv" width="200" height="24" class="rounded mb-1" style="display:block;margin:0 auto"></canvas>
+      <p class="text-[10px] text-slate-400" id="mt-st">Click Start</p>
+      <div class="flex gap-2 justify-center mt-1.5">
+        <button type="button" id="mt-go" class="px-4 py-1.5 rounded-lg text-[10px] font-semibold transition" style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.2)">Start</button>
+        <button type="button" id="mt-stop" class="hidden px-4 py-1.5 rounded-lg text-[10px] font-semibold transition" style="background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.2)">Stop</button>
+      </div>
+    </div>
+
+    <!-- Server URL (advanced) -->
+    <div>
+      <button type="button" id="adv-tog" class="flex items-center gap-2 text-[10px] text-slate-600 hover:text-slate-400 transition">
+        <i class="fa-solid fa-gear text-[9px]"></i>Backend URL <i class="fa-solid fa-chevron-down text-[8px] transition-transform" id="adv-ch"></i>
+      </button>
+      <div id="adv-p" class="hidden mt-1.5 p-2.5 rounded-xl" style="background:#1a1a2e;border:1px solid #2d2d4e">
+        <input type="text" id="inp-srv" value="" placeholder="https://smart-prep-x8ce.onrender.com" class="w-full rounded-lg px-2.5 py-1.5 text-[10px] text-white placeholder-slate-600 focus:outline-none transition" style="background:#0d0d1a;border:1px solid #2d2d4e">
+      </div>
+    </div>
+
+    <div class="gl"></div>
+
+    <button id="btn-start" disabled class="w-full py-3.5 rounded-xl text-sm font-black text-white transition btn-glow disabled:opacity-30 disabled:cursor-not-allowed" style="background:linear-gradient(135deg,#7c3aed,#06b6d4);box-shadow:0 4px 24px rgba(124,58,237,.35)">
+      🎙️ Start Interview
+    </button>
+    <button id="btn-schedule" class="hidden w-full py-3.5 rounded-xl text-sm font-bold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#e2e8f0">
+      📅 Schedule Interview
+    </button>
+  </div>
 </div>
 </div>
 
 <!-- INTERVIEW -->
-<div id="s-interview" class="scr flex-col">
-    <header class="flex items-center justify-between px-3 py-2 border-b border-bdr/50 bg-card/80 backdrop-blur-sm shrink-0">
-        <div class="flex items-center gap-2"><i class="fa-solid fa-graduation-cap text-acc text-xs"></i><span class="font-semibold text-xs">NS Prep</span></div>
-        <div class="flex items-center gap-2"><span class="fb" id="d-field"></span><span class="eb" id="d-eng">Built-in</span><span class="text-[10px] text-mut" id="d-cnt">Q 1/8</span></div>
-    </header>
-    <main class="flex-1 flex flex-col items-center px-3 py-3 overflow-hidden max-w-2xl mx-auto w-full relative">
-        <div id="d-iname" class="text-[10px] text-mut mb-0.5 font-medium"></div>
-        <div class="flex items-center gap-2 mb-0.5"><div class="aw"><div class="ar r3"></div><div class="ar r2"></div><div class="ar r1"></div><div class="ac" id="avc"><i class="fa-solid fa-microphone-lines" id="avc-i"></i></div></div><div class="rec-dot hidden" id="rec-dot" title="Recording"></div></div>
-        <div class="sw" id="swv"><div class="sba"></div><div class="sba"></div><div class="sba"></div><div class="sba"></div><div class="sba"></div><div class="sba"></div><div class="sba"></div></div>
-        <canvas id="audio-canvas" width="240" height="30" class="hidden"></canvas>
-        <p class="text-xs font-medium mt-0.5 mb-2 h-4" id="d-st">Preparing...</p>
-        <div class="ta w-full flex-1 min-h-0" id="ta-wrap"><div id="transcript"></div></div>
-        <div class="w-full flex gap-2 mt-1.5"><input type="text" id="inp-txt" placeholder="Type answer if mic unavailable..." disabled class="flex-1 bg-elev border border-bdr rounded-lg px-3 py-2 text-xs text-white placeholder-mut/40 focus:outline-none focus:border-acc/40 disabled:opacity-30 transition"><button id="btn-send" disabled class="bg-acc/20 text-acc font-medium px-3 py-2 rounded-lg text-xs hover:bg-acc/30 disabled:opacity-30 disabled:cursor-not-allowed transition">Send</button></div>
-        <!-- Video self-view -->
-        <div class="vid-prev hidden" id="vid-prev"><video id="vid-self" autoplay muted playsinline></video></div>
-    </main>
-    <footer class="px-3 py-2 border-t border-bdr/50 bg-card/80 backdrop-blur-sm shrink-0">
-        <div class="max-w-2xl mx-auto flex items-center gap-3"><div class="flex-1 h-1 bg-elev rounded-full overflow-hidden"><div class="h-full bg-acc rounded-full transition-all duration-500" id="pbar" style="width:0%"></div></div><button id="btn-end" class="text-[10px] text-mut hover:text-err transition font-medium whitespace-nowrap"><i class="fa-solid fa-xmark mr-1"></i>End</button></div>
-    </footer>
+<div id="s-interview" class="scr flex-col" style="background:#0d0d1a;min-height:100vh">
+  <header class="flex items-center justify-between px-4 py-3 shrink-0" style="background:rgba(13,13,26,.9);border-bottom:1px solid #2d2d4e;backdrop-filter:blur(12px)">
+    <div class="flex items-center gap-2">
+      <div class="w-6 h-6 rounded-md flex items-center justify-center" style="background:linear-gradient(135deg,#7c3aed,#06b6d4)"><i class="fa-solid fa-graduation-cap text-white text-[9px]"></i></div>
+      <span class="font-bold text-xs grad-text">NS Prep</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="fb text-[10px]" id="d-field"></span>
+      <span class="eb" id="d-eng">Built-in</span>
+      <span class="text-[10px] text-slate-500 font-semibold" id="d-cnt">Q 1/12</span>
+    </div>
+  </header>
+
+  <main class="flex-1 flex flex-col items-center px-4 py-4 overflow-hidden max-w-2xl mx-auto w-full relative">
+    <div id="d-iname" class="text-[10px] text-slate-500 mb-1 font-semibold tracking-wide"></div>
+
+    <!-- Avatar -->
+    <div class="flex items-center gap-3 mb-1">
+      <div class="aw">
+        <div class="ar r3"></div><div class="ar r2"></div><div class="ar r1"></div>
+        <div class="ac" id="avc"><i class="fa-solid fa-microphone-lines" id="avc-i"></i></div>
+      </div>
+      <div class="rec-dot hidden" id="rec-dot" title="Recording"></div>
+    </div>
+
+    <!-- Sound waves -->
+    <div class="sw" id="swv">
+      <div class="sba"></div><div class="sba"></div><div class="sba"></div><div class="sba"></div>
+      <div class="sba"></div><div class="sba"></div><div class="sba"></div>
+    </div>
+
+    <!-- Audio visualizer -->
+    <canvas id="audio-canvas" width="240" height="28" class="hidden mt-1 rounded-lg"></canvas>
+
+    <!-- Status text -->
+    <p class="text-xs font-semibold mt-1.5 mb-3 h-4 text-slate-400" id="d-st">Preparing...</p>
+
+    <!-- Transcript -->
+    <div class="ta w-full flex-1 min-h-0" id="ta-wrap"><div id="transcript"></div></div>
+
+    <!-- Text input fallback -->
+    <div class="w-full flex gap-2 mt-2">
+      <input type="text" id="inp-txt" placeholder="Type your answer if mic is unavailable..." disabled
+        class="flex-1 rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none transition disabled:opacity-30"
+        style="background:#1a1a2e;border:1px solid #2d2d4e">
+      <button id="btn-send" disabled class="px-4 py-2.5 rounded-xl text-xs font-bold transition disabled:opacity-30 disabled:cursor-not-allowed"
+        style="background:rgba(124,58,237,.2);color:#a78bfa;border:1px solid rgba(124,58,237,.3)">Send</button>
+    </div>
+
+    <!-- Self video -->
+    <div class="vid-prev hidden" id="vid-prev"><video id="vid-self" autoplay muted playsinline></video></div>
+  </main>
+
+  <footer class="px-4 py-3 shrink-0 pb-safe" style="background:rgba(13,13,26,.9);border-top:1px solid #2d2d4e;backdrop-filter:blur(12px)">
+    <div class="max-w-2xl mx-auto flex items-center gap-3">
+      <div class="flex-1 h-1.5 rounded-full overflow-hidden" style="background:#1a1a2e">
+        <div class="h-full rounded-full transition-all duration-700" id="pbar" style="width:0%;background:linear-gradient(90deg,#7c3aed,#06b6d4)"></div>
+      </div>
+      <button id="btn-end" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-slate-500 hover:text-err hover:bg-err/10 transition">
+        <i class="fa-solid fa-xmark"></i>End
+      </button>
+    </div>
+  </footer>
 </div>
 
 <!-- RESULTS -->
-<div id="s-results" class="scr flex-col items-center px-4 py-8">
+<div id="s-results" class="scr flex-col items-center px-4 py-8 pb-safe">
 <div class="w-full max-w-lg">
-    <div class="text-center mb-5"><div class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-acc/10 border border-acc/20 mb-2"><i class="fa-solid fa-chart-simple text-acc text-base"></i></div><h1 class="text-lg font-bold mb-0.5">Interview Complete</h1><p class="text-mut text-xs" id="r-sub"></p></div>
-    <div class="flex justify-center mb-5"><div class="relative"><svg width="140" height="140" viewBox="0 0 140 140"><circle class="sc-bg" cx="70" cy="70" r="59"/><circle class="sc-ar" id="sc-ar" cx="70" cy="70" r="59" stroke-dasharray="370.71" stroke-dashoffset="370.71"/></svg><div class="absolute inset-0 flex flex-col items-center justify-center"><span class="text-2xl font-black" id="sc-n">0</span><span class="text-[10px] text-mut">/ 100</span></div></div></div>
-    <div class="bg-card border border-bdr rounded-xl p-3 mb-3 space-y-2" id="r-subs"></div>
-    <div class="bg-card border border-bdr rounded-xl p-3 mb-3"><h3 class="text-[11px] font-semibold mb-1 text-gray-400">Feedback</h3><p class="text-xs text-mut leading-relaxed" id="r-fb">—</p></div>
-    <div class="bg-card border border-bdr rounded-xl p-3 mb-5"><h3 class="text-[11px] font-semibold mb-1 text-gray-400">Improvements</h3><ul class="text-xs text-mut space-y-1" id="r-imp"></ul></div>
-    <details class="bg-card border border-bdr rounded-xl p-3 mb-5"><summary class="text-[11px] font-semibold text-gray-400 cursor-pointer">Full Transcript</summary><div class="mt-2 space-y-2 text-xs" id="r-trans"></div></details>
-    <div class="flex gap-2"><button onclick="showScreen('setup')" class="flex-1 bg-acc hover:bg-acc-h text-bg font-semibold py-2.5 rounded-xl transition text-sm">New Interview</button><button onclick="showScreen('dash')" class="flex-1 bg-elev hover:bg-surf border border-bdr text-gray-300 font-medium py-2.5 rounded-xl transition text-sm">Dashboard</button></div>
+  <div class="text-center mb-6">
+    <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-3 btn-glow" style="background:linear-gradient(135deg,#7c3aed,#06b6d4)">
+      <i class="fa-solid fa-chart-simple text-white text-base"></i>
+    </div>
+    <h1 class="text-2xl font-black grad-text mb-0.5">Interview Complete</h1>
+    <p class="text-slate-500 text-xs" id="r-sub"></p>
+  </div>
+
+  <!-- Score circle -->
+  <div class="flex justify-center mb-5">
+    <div class="relative">
+      <svg width="150" height="150" viewBox="0 0 150 150">
+        <defs><linearGradient id="rg" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:#7c3aed"/><stop offset="100%" style="stop-color:#06b6d4"/></linearGradient></defs>
+        <circle fill="none" stroke="#1a1a2e" stroke-width="9" cx="75" cy="75" r="60"/>
+        <circle fill="none" stroke="url(#rg)" stroke-width="9" stroke-linecap="round" id="sc-ar" cx="75" cy="75" r="60" stroke-dasharray="376.99" stroke-dashoffset="376.99" style="transform:rotate(-90deg);transform-origin:center;transition:stroke-dashoffset 1.6s ease-out"/>
+      </svg>
+      <div class="absolute inset-0 flex flex-col items-center justify-center">
+        <span class="text-3xl font-black grad-text" id="sc-n">0</span>
+        <span class="text-[10px] text-slate-500">/ 100</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="rounded-xl p-4 mb-3 space-y-2.5" style="background:#13131f;border:1px solid #2d2d4e" id="r-subs"></div>
+
+  <div class="rounded-xl p-4 mb-3" style="background:#13131f;border:1px solid #2d2d4e">
+    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Feedback</h3>
+    <p class="text-sm text-slate-300 leading-relaxed" id="r-fb">—</p>
+  </div>
+
+  <div class="rounded-xl p-4 mb-5" style="background:#13131f;border:1px solid #2d2d4e">
+    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Areas to Improve</h3>
+    <ul class="space-y-1.5" id="r-imp"></ul>
+  </div>
+
+  <details class="rounded-xl p-4 mb-5" style="background:#13131f;border:1px solid #2d2d4e">
+    <summary class="text-[10px] font-black text-slate-400 uppercase tracking-wider cursor-pointer">Full Transcript</summary>
+    <div class="mt-3 space-y-2" id="r-trans"></div>
+  </details>
+
+  <div class="flex gap-3">
+    <button onclick="showScreen('setup')" class="flex-1 py-3.5 rounded-xl text-sm font-bold text-white btn-glow" style="background:linear-gradient(135deg,#7c3aed,#06b6d4);box-shadow:0 4px 20px rgba(124,58,237,.3)">
+      🎙️ New Interview
+    </button>
+    <button onclick="loadDashboard();showScreen('dash')" class="flex-1 py-3.5 rounded-xl text-sm font-semibold text-slate-300 transition" style="background:#1a1a2e;border:1px solid #2d2d4e">
+      📊 Dashboard
+    </button>
+  </div>
 </div>
 </div>
 
-<!-- STUDENT Q&A MODAL (shown at end of interview) -->
-<div id="sq-modal" class="hidden fixed inset-0 z-[100] flex items-end sm:items-center justify-center px-4 py-6">
-  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeSQModal()"></div>
-  <div class="relative w-full max-w-md bg-card border border-bdr rounded-2xl p-5 space-y-4 shadow-2xl">
+<!-- STUDENT Q&A MODAL -->
+<div id="sq-modal" class="hidden fixed inset-0 z-[100] flex items-end sm:items-center justify-center px-3 py-4">
+  <div class="absolute inset-0 backdrop-blur-sm" style="background:rgba(0,0,0,.75)" onclick="closeSQModal()"></div>
+  <div class="relative w-full max-w-md rounded-2xl p-5 space-y-4 shadow-2xl" style="background:#13131f;border:1px solid #2d2d4e">
     <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-xl bg-acc/10 border border-acc/20 flex items-center justify-center shrink-0"><i class="fa-solid fa-comments text-acc text-sm"></i></div>
-      <div><p class="text-sm font-bold">Your Turn to Ask</p><p class="text-[11px] text-mut" id="sq-sub">You have <span id="sq-remaining">2</span> question(s) remaining.</p></div>
-    </div>
-    <div id="sq-ai-answer" class="hidden bg-elev/60 border border-bdr/50 rounded-xl p-3">
-      <div class="flex items-center gap-2 mb-1.5"><span class="w-1.5 h-1.5 rounded-full bg-acc shrink-0"></span><span class="text-[10px] font-semibold text-acc uppercase tracking-wide" id="sq-iv-name">Interviewer</span></div>
-      <p class="text-xs text-gray-200 leading-relaxed" id="sq-answer-text"></p>
-    </div>
-    <!-- Leave for admin section -->
-    <div id="sq-admin-wrap" class="hidden space-y-2">
-      <div class="flex items-start gap-2 p-2.5 bg-wrn/10 border border-wrn/30 rounded-lg">
-        <i class="fa-solid fa-circle-info text-wrn text-xs mt-0.5 shrink-0"></i>
-        <p class="text-[11px] text-wrn/90">That's outside what I can answer right now. You can leave it for an admin to respond to later.</p>
+      <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 btn-glow" style="background:linear-gradient(135deg,#7c3aed,#06b6d4)">
+        <i class="fa-solid fa-comments text-white text-sm"></i>
       </div>
-      <textarea id="sq-admin-msg" rows="3" placeholder="Type your question here and we'll make sure it gets answered..." class="w-full bg-elev border border-bdr rounded-lg px-3 py-2 text-xs text-white placeholder-mut/40 focus:outline-none focus:border-acc/40 resize-none transition"></textarea>
-      <button onclick="submitAdminQuestion()" class="w-full bg-acc/20 hover:bg-acc/30 text-acc font-semibold py-2 rounded-lg text-xs transition"><i class="fa-solid fa-paper-plane mr-1.5"></i>Send to Admin</button>
+      <div>
+        <p class="text-sm font-black text-white">Your Turn to Ask</p>
+        <p class="text-[11px] text-slate-500" id="sq-sub">You have <span id="sq-remaining">2</span> question(s) remaining.</p>
+      </div>
+    </div>
+    <div id="sq-ai-answer" class="hidden rounded-xl p-3" style="background:#1a1a2e;border:1px solid #2d2d4e">
+      <div class="flex items-center gap-2 mb-1.5">
+        <div class="w-1.5 h-1.5 rounded-full" style="background:#7c3aed"></div>
+        <span class="text-[10px] font-bold text-violet-400 uppercase tracking-wide" id="sq-iv-name">Interviewer</span>
+      </div>
+      <p class="text-xs text-slate-200 leading-relaxed" id="sq-answer-text"></p>
+    </div>
+    <div id="sq-admin-wrap" class="hidden space-y-2">
+      <div class="flex items-start gap-2 p-3 rounded-xl" style="background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2)">
+        <i class="fa-solid fa-circle-info text-amber-400 text-xs mt-0.5 shrink-0"></i>
+        <p class="text-[11px] text-amber-200/80">That's beyond what I can reliably answer. Leave it for our team and we'll get back to you.</p>
+      </div>
+      <textarea id="sq-admin-msg" rows="3" placeholder="Type your question here..." class="w-full rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none resize-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e"></textarea>
+      <button onclick="submitAdminQuestion()" class="w-full py-2.5 rounded-xl text-xs font-bold transition" style="background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(245,158,11,.25)">
+        <i class="fa-solid fa-paper-plane mr-1.5"></i>Send to Admin
+      </button>
     </div>
     <div id="sq-input-wrap" class="space-y-2">
-      <p class="text-[11px] text-mut">Ask me anything about the interview, the field, or what to expect in national service.</p>
+      <p class="text-[11px] text-slate-500">Ask anything about the interview, the field, or what to expect in national service.</p>
       <div class="flex gap-2">
-        <input type="text" id="sq-input" placeholder="Type your question..." class="flex-1 bg-elev border border-bdr rounded-lg px-3 py-2 text-xs text-white placeholder-mut/40 focus:outline-none focus:border-acc/40 transition">
-        <button onclick="submitStudentQuestion()" id="sq-ask-btn" class="bg-acc hover:bg-acc-h text-bg font-semibold px-3 py-2 rounded-lg text-xs transition"><i class="fa-solid fa-paper-plane"></i></button>
+        <input type="text" id="sq-input" placeholder="Your question..." class="flex-1 rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e">
+        <button onclick="submitStudentQuestion()" id="sq-ask-btn" class="px-4 py-2.5 rounded-xl text-xs font-bold btn-glow" style="background:linear-gradient(135deg,#7c3aed,#06b6d4);color:#fff">
+          <i class="fa-solid fa-paper-plane"></i>
+        </button>
       </div>
     </div>
-    <div class="flex gap-2 pt-1">
-      <button onclick="closeSQModal()" id="sq-done-btn" class="flex-1 bg-elev hover:bg-surf border border-bdr text-gray-300 font-medium py-2 rounded-xl text-xs transition">Done — See My Results</button>
-    </div>
+    <button onclick="closeSQModal()" class="w-full py-3 rounded-xl text-xs font-bold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#e2e8f0">
+      Done — See My Results
+    </button>
   </div>
 </div>
 
