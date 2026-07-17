@@ -95,8 +95,11 @@ function buildNav(){
 function switchAuthTab(t){
   $(`#form-login`).classList.toggle('hidden',t!=='login');
   $(`#form-signup`).classList.toggle('hidden',t!=='signup');
-  $(`#tab-login`).className=`flex-1 py-1.5 rounded-md text-sm font-medium transition ${t==='login'?'bg-acc text-bg':'text-mut hover:text-white'}`;
-  $(`#tab-signup`).className=`flex-1 py-1.5 rounded-md text-sm font-medium transition ${t==='signup'?'bg-acc text-bg':'text-mut hover:text-white'}`;
+  $(`#form-forgot`)?.classList.add('hidden');
+  // Style active/inactive tabs with inline styles to match the new design
+  const li=$(`#tab-login`),su=$(`#tab-signup`);
+  li.style.cssText=t==='login'?'background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff':'color:#6b7280';
+  su.style.cssText=t==='signup'?'background:linear-gradient(135deg,#7c3aed,#06b6d4);color:#fff':'color:#6b7280';
   $(`#auth-err`).classList.add('hidden');
 }
 
@@ -149,6 +152,37 @@ async function handleSignup(){
 
 function showAE(m){const e=$(`#auth-err`);e.innerHTML=`<i class="fa-solid fa-circle-exclamation mt-0.5 shrink-0"></i><span>${esc(m)}</span>`;e.classList.remove('hidden')}
 async function handleLogout(){await sb.auth.signOut();S.user=null;S.profile=null;S.sessions=[];showScreen('auth')}
+
+// Toggle password visibility
+function togglePw(fieldId,btn){
+  const inp=$(`#${fieldId}`);if(!inp)return;
+  const show=inp.type==='password';
+  inp.type=show?'text':'password';
+  btn.querySelector('i').className=show?'fa-solid fa-eye-slash text-xs':'fa-solid fa-eye text-xs';
+}
+
+// Show forgot password form
+function showForgotPassword(){
+  $(`#form-login`).classList.add('hidden');
+  $(`#form-signup`).classList.add('hidden');
+  $(`#form-forgot`).classList.remove('hidden');
+  $(`#tab-login`).style.background='';$(`#tab-login`).style.color='#6b7280';
+  $(`#tab-signup`).style.background='';$(`#tab-signup`).style.color='#6b7280';
+  $(`#auth-err`).classList.add('hidden');
+}
+
+async function handleForgotPassword(){
+  const email=$(`#fp-email`)?.value.trim();
+  if(!email){toast('Enter your email address.','err');return}
+  const btn=$('#btn-fp');if(btn){btn.disabled=true;btn.textContent='Sending...'}
+  const{error}=await sb.auth.resetPasswordForEmail(email,{
+    redirectTo:window.location.origin+'/#reset-password'
+  });
+  if(btn){btn.disabled=false;btn.textContent='Send Reset Link'}
+  if(error){toast('Error: '+error.message,'err');return}
+  const msg=$('#fp-msg');if(msg){msg.textContent='✅ Reset link sent! Check your email inbox (and spam folder).';msg.classList.remove('hidden')}
+  toast('Reset link sent to '+email,'ok');
+}
 
 function handleUniChange(sel){
   const other=$('#su-uni-other');
@@ -336,37 +370,52 @@ function testSpeaker(){
     if(status)status.style.color='#ef4444';
   }
 }
+// ===== MEDIA — separate audio/video for iOS graceful degradation =====
 async function startMedia(){
-  // Request video+audio together — one permission prompt, one stream
+  // Step 1: Request audio (critical — must succeed for interview to work)
+  let audioStream=null;
   try{
-    S.vidStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:true});
-    // Self-view
-    const sv=$('#vid-self');sv.srcObject=S.vidStream;
-    $(`#vid-prev`).classList.remove('hidden');$(`#rec-dot`).classList.remove('hidden');
-    // Visualizer using same audio track
-    S.audioCtx=new(window.AudioContext||window.webkitAudioContext)();
-    S.analyser=S.audioCtx.createAnalyser();S.analyser.fftSize=128;
-    S.audioCtx.createMediaStreamSource(S.vidStream).connect(S.analyser);
-    // Video recorder
-    S.vidChunks=[];
-    const mime=MediaRecorder.isTypeSupported('video/webm;codecs=vp9')?'video/webm;codecs=vp9':'video/webm';
-    S.mediaRecorder=new MediaRecorder(S.vidStream,{mimeType:mime});
-    S.mediaRecorder.ondataavailable=e=>{if(e.data.size>0)S.vidChunks.push(e.data)};
-    S.mediaRecorder.start(1000);S.isRecording=true;
-    $(`#rec-dot`).classList.remove('hidden');$(`#rec-label`)?.classList.remove('hidden');
-    return true;
-  }catch(e){
-    console.warn('Camera/mic unavailable:',e.message);
-    // Fall back to audio-only for visualizer
-    try{
-      S.micStream=await navigator.mediaDevices.getUserMedia({audio:true});
-      S.audioCtx=new(window.AudioContext||window.webkitAudioContext)();
-      S.analyser=S.audioCtx.createAnalyser();S.analyser.fftSize=128;
-      S.audioCtx.createMediaStreamSource(S.micStream).connect(S.analyser);
-    }catch(ae){console.warn('Audio-only fallback also failed:',ae.message)}
-    $(`#vid-prev`).classList.add('hidden');$(`#rec-dot`).classList.add('hidden');
+    audioStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+  }catch(ae){
+    console.warn('Mic denied:',ae.message);
+    $(`#vid-prev`).classList.add('hidden');$(`#rec-dot`).classList.add('hidden');$(`#rec-label`)?.classList.add('hidden');
+    $(`#inp-txt`).disabled=false;$(`#btn-send`).disabled=false;
+    $(`#d-st`).textContent='Mic unavailable — type your answers below';$(`#d-st`).style.color='#f59e0b';
+    toast('Mic access denied — type your answers instead.','err');
     return false;
   }
+
+  // Step 2: Set up audio analyser immediately (so visualizer works)
+  S.audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  if(S.audioCtx.state==='suspended')await S.audioCtx.resume();
+  S.analyser=S.audioCtx.createAnalyser();S.analyser.fftSize=128;
+  S.audioCtx.createMediaStreamSource(audioStream).connect(S.analyser);
+
+  // Step 3: Request camera separately — if denied, interview continues audio-only
+  try{
+    const videoStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});
+    // Combine audio + video tracks into one stream
+    const combined=new MediaStream([...audioStream.getAudioTracks(),...videoStream.getVideoTracks()]);
+    S.vidStream=combined;
+    $(`#vid-self`).srcObject=combined;
+    $(`#vid-prev`).classList.remove('hidden');
+    $(`#rec-dot`).classList.remove('hidden');$(`#rec-label`)?.classList.remove('hidden');
+    // Start recording combined stream
+    S.vidChunks=[];
+    const mime=MediaRecorder.isTypeSupported('video/webm;codecs=vp9')?'video/webm;codecs=vp9':
+                MediaRecorder.isTypeSupported('video/webm')?'video/webm':'video/mp4';
+    try{
+      S.mediaRecorder=new MediaRecorder(combined,{mimeType:mime});
+      S.mediaRecorder.ondataavailable=e=>{if(e.data.size>0)S.vidChunks.push(e.data)};
+      S.mediaRecorder.start(1000);S.isRecording=true;
+    }catch(re){console.warn('Recorder failed, continuing without recording:',re.message)}
+  }catch(ve){
+    // Camera denied or not available — audio-only, still fully functional
+    console.warn('Camera unavailable, audio-only mode:',ve.message);
+    S.micStream=audioStream;
+    $(`#vid-prev`).classList.add('hidden');$(`#rec-dot`).classList.add('hidden');$(`#rec-label`)?.classList.add('hidden');
+  }
+  return true;
 }
 
 function drawVisualizer(){
@@ -380,7 +429,7 @@ function drawVisualizer(){
     const bw=c.width/bins*2.2;let px=0;
     for(let i=0;i<bins;i++){
       const h=Math.max(2,(data[i]/255)*c.height*.95),a=0.3+(data[i]/255)*0.7;
-      ctx.fillStyle=`rgba(34,197,94,${a})`;ctx.beginPath();ctx.roundRect(px,c.height-h,bw-1.5,h,2);ctx.fill();px+=bw;
+      ctx.fillStyle=`rgba(16,185,129,${a})`;ctx.beginPath();ctx.roundRect(px,c.height-h,bw-1.5,h,2);ctx.fill();px+=bw;
     }
   }
   frame();
@@ -777,26 +826,38 @@ function getCurrentInterviewer(){
 
 // ===== INTERVIEW FLOW =====
 async function startInt(){
-  if(!S.field){toast('Please select an engineering field.','err');return}
+  if(!S.field){toast('Please select your field.','err');return}
   S.name=S.profile?.name||'Student';
   S.company=$('#inp-company')?.value.trim()||'';
-  // Carry internship info from profile into session context
   S.internshipInfo=S.profile?.internship_info||'';
   S.hasInternship=S.profile?.has_internship||false;
   await apiHealth();
   S.conversation=[];S.currentQ=0;S.teamIdx=0;S.ending=false;S.currentSessionId=null;
-  // Use selected question count and build a fresh randomized arc
   S.totalQ=parseInt($$('#qcount-sel button[data-sel="1"]')[0]?.dataset.q||'12');
   S.questionArc=buildArc(S.totalQ);
   $(`#transcript`).innerHTML='';updateProgress();showScreen('interview');
   $(`#d-field`).textContent=S.fieldLabel;$(`#d-eng`).textContent=S.serverUp?'LLM':'Built-in';
   S.currentIV=getCurrentInterviewer();
+  // Create session record in DB
   if(S.user){
     const{data:sess}=await sb.from('interview_sessions').insert({user_id:S.user.id,field:S.field,field_label:S.fieldLabel,target_company:S.company||null,interviewer_mode:S.mode,total_questions:S.totalQ,status:'active'}).select('id').single();
     if(sess)S.currentSessionId=sess.id;
   }
-  await beginInterview();
+  // Show tap-to-start overlay (required for iOS Safari TTS + mic)
+  // On desktop, auto-dismiss after 800ms if no touch detected
+  const overlay=$('#iv-start-overlay');
+  overlay.classList.remove('hidden');
+  const startBtn=$('#btn-iv-start');
+  const proceed=()=>{
+    overlay.classList.add('hidden');
+    beginInterview();
+  };
+  startBtn.onclick=proceed;
+  // Auto-proceed on desktop (non-touch) after short delay
+  const isTouch=navigator.maxTouchPoints>0||'ontouchstart' in window;
+  if(!isTouch)setTimeout(proceed,600);
 }
+
 async function beginInterview(){
   $(`#d-iname`).textContent=S.currentIV.name+' — '+S.currentIV.role;
   $(`#d-iname`).style.color=S.currentIV.color||'#888';
@@ -805,17 +866,16 @@ async function beginInterview(){
   const progLabel=S.profile?.program?` — ${S.profile.program}`:'';
   const greeting=S.mode==='team'
     ?`${gtg()}, ${S.name}. Welcome to your panel interview for ${S.fieldLabel}${progLabel}. ${S.currentIV.intro} Please start by telling us about yourself.`
-    :`${gtg()}, ${S.name}. I'm ${S.currentIV.name}, your interviewer today. We're doing a mock national service interview for ${S.fieldLabel}${progLabel}. I'll ask you ${S.totalQ} questions. Take your time and speak clearly. Let's begin — tell me about yourself.`;
+    :`${gtg()}, ${S.name}. I'm ${S.currentIV.name}, your interviewer today. We're doing a mock national service interview for ${S.fieldLabel}${progLabel}. I'll ask you ${S.totalQ} questions. Take your time and speak clearly. Let's begin — please tell me about yourself.`;
 
-  // Show greeting in transcript immediately
   S.conversation.push({role:'ai',text:greeting,interviewer:S.currentIV.name});
   addMessage('ai',greeting,false);
   setPhase('speaking');
 
-  // Start media (camera+mic) in background — don't block speech
-  startMedia(); // fire-and-forget — permission prompt may appear but speech starts instantly
+  // Request mic+camera NOW (after user gesture from tap) — critical for iOS
+  await startMedia();
 
-  // Speak the greeting with no pre-delay
+  // Speak greeting — now guaranteed to work because it's inside a user-gesture context
   await tts.speak(greeting,vc);
   await startListening();
 }
