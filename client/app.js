@@ -11,6 +11,7 @@ const S={
   conversation:[],currentQ:0,totalQ:8,questionArc:[],phase:'idle',
   isListening:false,isSpeaking:false,serverUp:false,ending:false,
   studentQPhase:false,studentQCount:0,studentQMax:2,
+  _coachTimer:null,
   micStream:null,audioCtx:null,analyser:null,animId:null,
   silenceT:null,maxT:null,finalTxt:'',interimTxt:'',
   currentIV:null,teamIdx:0,
@@ -563,6 +564,9 @@ async function loadDashboard(){
   // Readiness meter
   updateReadiness(scores,(sessions||[]).filter(s=>s.status==='completed').length,comps?.length||0);
   showDailyTip();
+  loadDailyQuestion(S.profile?.program_category||S.field);
+  renderCompanies(NSS_COMPANIES);
+  loadAdminReplies();
   // Scheduled sessions
   const sched=(sessions||[]).filter(s=>s.status==='scheduled'&&new Date(s.scheduled_for)>new Date());
   const sec=$('#sched-sec'),list=$('#sched-list');
@@ -678,6 +682,25 @@ async function replyAdminQuestion(id){
   const{error}=await sb.from('admin_questions').update({answer,answered_by:S.user.id,answered_at:new Date().toISOString()}).eq('id',id);
   if(error){toast('Failed: '+error.message,'err');return}
   toast('Reply sent!','ok');loadAdmin();
+}
+
+// ===== ADMIN REPLIES (student view — show when admin has answered their question) =====
+async function loadAdminReplies(){
+  if(!S.user)return;
+  const{data:replies}=await sb.from('admin_questions').select('*').eq('user_id',S.user.id).not('answer','is',null).order('answered_at',{ascending:false}).limit(5);
+  const card=$('#admin-replies-card'),list=$('#admin-replies-list');
+  if(!card||!list)return;
+  if(!replies?.length){card.classList.add('hidden');return}
+  card.classList.remove('hidden');
+  list.innerHTML=replies.map(r=>`
+    <div class="px-4 py-3">
+      <p class="text-[11px] font-semibold text-slate-300 mb-1">${esc(r.question)}</p>
+      <div class="flex items-start gap-2 mt-1.5 p-2.5 rounded-xl" style="background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.15)">
+        <i class="fa-solid fa-reply text-emerald-400 text-[10px] mt-0.5 shrink-0"></i>
+        <p class="text-xs text-slate-300 leading-relaxed">${esc(r.answer)}</p>
+      </div>
+      <p class="text-[10px] text-slate-600 mt-1">${r.answered_at?new Date(r.answered_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):''}</p>
+    </div>`).join('');
 }
 
 // ===== MANAGE TESTS =====
@@ -884,7 +907,14 @@ async function startListening(){
   if(S.ending)return;
   setPhase('listening');S.isListening=true;
   const ok=stt.start(
-    (final,interim)=>{removeInterim();if(interim)addMessage('student',final+interim,true);else if(final){removeInterim();addMessage('student',final,false)}},
+    (final,interim)=>{
+      removeInterim();
+      const combined=final+(interim?interim:'');
+      if(interim)addMessage('student',combined,true);
+      else if(final){removeInterim();addMessage('student',final,false)}
+      // Update word count meter live while speaking
+      updateWCMeter(S.finalTxt+(S.interimTxt||''));
+    },
     (text)=>processAnswer(text)
   );
   if(!ok){
@@ -900,6 +930,7 @@ async function processAnswer(text){
   S.isListening=false;
   if(S.maxT){clearTimeout(S.maxT);S.maxT=null}
   stopVisualizer();
+  hideWCMeter();
 
   // Fallback to typed input
   if(!text||text.trim().length<3){
@@ -939,7 +970,6 @@ async function processAnswer(text){
     const ack=analysis.acknowledgement||'';
     const correction=analysis.correction;
     let response=ack;
-    // Only add correction for genuinely wrong technical answers, ~60% of the time (not every time — natural)
     if(correction&&analysis.isWrongTechnically&&['technical','scenario'].includes(currentQType)&&Math.random()>0.35){
       response=ack?`${ack} ${correction}`:correction;
     }
@@ -948,6 +978,8 @@ async function processAnswer(text){
       S.conversation.push({role:'ai',text:response,interviewer:S.currentIV.name});
       await tts.speak(response,getVoiceCfg());
     }
+    // Show coach tip silently (non-spoken visual feedback)
+    showCoachTip(analysis.quality||'partial');
   }
 
   if(S.currentQ>=S.totalQ){await endInterview();return}
@@ -1108,6 +1140,8 @@ function showResults(g){
   const circ=2*Math.PI*59;
   setTimeout(()=>{const arc=$('#sc-ar');if(arc)arc.style.strokeDashoffset=circ*(1-g.overall/100)},100);
   animN($(`#sc-n`),0,g.overall,1200);
+  // Check if student earned a certificate
+  checkCertificate(g.overall);
   const subs=[{l:'Communication',s:g.communication,c:'#3b82f6',w:'25%'},{l:'Technical',s:g.technical,c:'#e8a023',w:'35%'},{l:'Relevance',s:g.relevance,c:'#8b5cf6',w:'20%'},{l:'Confidence',s:g.confidence,c:'#22c55e',w:'20%'}];
   const el=$('#r-subs');el.innerHTML='';
   subs.forEach((s,i)=>{const d=document.createElement('div');d.innerHTML=`<div class="flex justify-between items-center mb-0.5"><span class="text-[10px] text-gray-400">${s.l} <span class="text-[9px] text-mut">${s.w}</span></span><span class="text-[10px] font-semibold" style="color:${s.c}">${s.s}</span></div><div class="bt"><div class="bf" style="width:0%;background:${s.c}" id="rb-${i}"></div></div>`;el.appendChild(d);setTimeout(()=>{const bf=$(`#rb-${i}`);if(bf)bf.style.width=s.s+'%'},200+i*150)});
@@ -1172,9 +1206,155 @@ function updateReadiness(scores,sessCount,testCount){
 }
 function showDailyTip(){
   const el=$('#tip-text');if(!el)return;
-  // Rotate tip daily using day of year as seed
   const d=new Date();const dayIdx=(d.getFullYear()*365+d.getMonth()*31+d.getDate())%TIPS.length;
   el.textContent=TIPS[dayIdx];
+}
+
+// ===== NSS COMPANIES =====
+const NSS_COMPANIES=[
+  {name:'Volta River Authority (VRA)',field:'electrical',type:'Power Utility',icon:'⚡'},
+  {name:'Ghana Grid Company (GRIDCo)',field:'electrical',type:'Power Utility',icon:'⚡'},
+  {name:'Electricity Company of Ghana (ECG)',field:'electrical',type:'Distribution',icon:'⚡'},
+  {name:'Ghana Atomic Energy Commission',field:'electrical',type:'Research',icon:'⚛️'},
+  {name:'Ghana National Petroleum Corp (GNPC)',field:'petroleum',type:'Oil & Gas',icon:'🛢️'},
+  {name:'Ghana Gas Company',field:'petroleum',type:'Oil & Gas',icon:'🛢️'},
+  {name:'Tullow Oil Ghana',field:'petroleum',type:'Oil & Gas',icon:'🛢️'},
+  {name:'Newmont Ghana Gold',field:'mining',type:'Gold Mining',icon:'⛏️'},
+  {name:'AngloGold Ashanti',field:'mining',type:'Gold Mining',icon:'⛏️'},
+  {name:'Gold Fields Ghana',field:'mining',type:'Gold Mining',icon:'⛏️'},
+  {name:'Geological Survey Authority',field:'mining',type:'Government',icon:'🪨'},
+  {name:'Ghana Highways Authority (GHA)',field:'civil',type:'Infrastructure',icon:'🏗️'},
+  {name:'Ghana Airports Company (GACL)',field:'civil',type:'Infrastructure',icon:'✈️'},
+  {name:'Ghana Water Company Limited',field:'civil',type:'Water Utility',icon:'💧'},
+  {name:'Ghana Standards Authority',field:'mechanical',type:'Standards Body',icon:'📏'},
+  {name:'Tema Oil Refinery (TOR)',field:'chemical',type:'Refinery',icon:'🏭'},
+  {name:'National Communications Authority',field:'computer',type:'Telecom Regulator',icon:'📡'},
+  {name:'MTN Ghana',field:'computer',type:'Telecom',icon:'📱'},
+  {name:'Vodafone Ghana',field:'computer',type:'Telecom',icon:'📱'},
+  {name:'CSIR — Institute of Industrial Research',field:'computer',type:'Research',icon:'🔬'},
+  {name:'Ghana Cocoa Board (COCOBOD)',field:'agricultural',type:'Agriculture',icon:'🌿'},
+  {name:'Ghana Irrigation Development Authority',field:'agricultural',type:'Agriculture',icon:'💦'},
+  {name:'Food and Drugs Authority (FDA)',field:'biomedical',type:'Regulatory',icon:'💊'},
+  {name:'Lands Commission Ghana',field:'geomatic',type:'Government',icon:'🗺️'},
+  {name:'Survey and Mapping Division',field:'geomatic',type:'Government',icon:'🗺️'},
+  {name:'Ghana Health Service',field:'health',type:'Health',icon:'🏥'},
+  {name:'Korle Bu Teaching Hospital',field:'health',type:'Hospital',icon:'🏥'},
+  {name:'Agricultural Development Bank',field:'business',type:'Banking',icon:'🏦'},
+  {name:'Ghana Education Service (GES)',field:'business',type:'Education',icon:'📚'},
+  {name:'National Fire & Rescue Service',field:'safety',type:'Emergency',icon:'🚒'},
+];
+function renderCompanies(list){
+  const el=$('#company-list');if(!el)return;
+  if(!list.length){el.innerHTML='<p class="text-xs text-slate-600 text-center py-3">No companies match.</p>';return}
+  el.innerHTML=list.slice(0,20).map(c=>`<div class="flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition" style="background:#1a1a2e" onclick="selectCompanyForInterview('${c.name.replace(/'/g,"\\'")}')"><span class="text-xl shrink-0">${c.icon}</span><div class="flex-1 min-w-0"><div class="text-xs font-semibold text-slate-200 truncate">${c.name}</div><div class="text-[10px] text-slate-500">${c.type} · ${FL[c.field]||c.field}</div></div><span class="text-[9px] px-2 py-0.5 rounded-full font-bold shrink-0" style="background:rgba(124,58,237,.12);color:#a78bfa">Practice</span></div>`).join('');
+}
+function filterCompanies(q){const s=(q||'').toLowerCase();const f=s?NSS_COMPANIES.filter(c=>c.name.toLowerCase().includes(s)||FL[c.field]?.toLowerCase().includes(s)||c.type.toLowerCase().includes(s)):NSS_COMPANIES;renderCompanies(f)}
+function selectCompanyForInterview(name){const inp=$('#inp-company');if(inp){inp.value=name;inp.focus()}toast(`"${name}" set as target. Configure your interview!`,'ok')}
+
+// ===== DAILY PRACTICE QUESTION =====
+const DAILY_Q={
+  electrical:["How would you diagnose a motor that runs hot but doesn't trip its thermal overload?","Explain the significance of power factor and how you would improve it.","What protection devices do you specify for a 3-phase motor and why?"],
+  computer:["Walk through your systematic approach to debugging erratic embedded firmware.","How would you design a sensor network to monitor temperature across a factory?","Explain what debouncing is and how you implement it in software."],
+  civil:["A client wants to build on soft clay. What geotechnical investigation do you specify?","Describe quality control on a concrete site from pre-pour to post-cure.","What are the main differences between reinforced and prestressed concrete?"],
+  mechanical:["A centrifugal pump in a plant is surging intermittently. What are the likely causes?","Compare welding versus bolting for structural connections.","How would you select a gearbox for a conveyor application?"],
+  mining:["What factors determine open-pit vs underground mining for a deposit?","What environmental measures would you implement near a mine adjacent to a river?","How do you ensure worker safety during blasting operations?"],
+  chemical:["A distillation column is not achieving required separation. What do you check first?","When would you choose a CSTR over a PFR reactor design?","Describe how you would size a heat exchanger for a process stream."],
+  petroleum:["Explain the drive mechanisms that sustain production from an oil reservoir.","Describe primary, secondary, and enhanced oil recovery methods.","What well test determines reservoir permeability and how do you interpret it?"],
+  agricultural:["Design a water management approach for a 5-hectare irrigated farm.","What are the key causes of post-harvest losses in cereal crops and how do you address them?","How do you select the most appropriate irrigation method for a vegetable farm?"],
+  biomedical:["What regulatory pathway must a new medical device follow in Ghana?","How would you troubleshoot a patient monitor giving inconsistent readings?","Explain what biocompatibility means and why it matters for implants."],
+  geomatic:["How would you set up a ground control network for a large construction project?","What are the main error sources in GPS surveying and how do you mitigate them?","Explain the difference between a geodetic datum and a coordinate reference system."],
+  materials:["Why is stainless steel used in food processing instead of mild steel?","What happens at the microstructural level during tempering of hardened steel?","A steel shaft is failing by fatigue — what design changes increase its fatigue life?"],
+  health:["Describe standard infection control precautions in a clinical laboratory.","How would you handle lab results inconsistent with the patient's clinical presentation?","Explain chain of custody requirements for diagnostic specimens."],
+  business:["How would you analyse the financial viability of a new SME in Ghana?","Describe the key financial ratios used to assess a company's health.","What are the main risks facing small businesses in Ghana's economy?"],
+  safety:["Describe the hierarchy of controls for managing workplace hazards.","Walk me through conducting a Job Hazard Analysis (JHA).","How would you manage emergency evacuation of a multi-storey building?"],
+};
+const DAILY_HINT={
+  electrical:'Systematic diagnosis, safety first, technical specifics.',
+  computer:'Show structured debugging — methodology over answers.',
+  civil:'Engineering principles, reference to standards, quality assurance.',
+  mechanical:'Thermodynamic/mechanical principles with practical context.',
+  mining:'Balance technical accuracy with safety and environmental awareness.',
+  chemical:'Mass balance, thermodynamics, process safety.',
+  petroleum:'Reservoir engineering fundamentals and production experience.',
+  agricultural:'Connect technical knowledge to Ghanaian farming context.',
+  biomedical:'Patient safety and regulatory compliance are always the priority.',
+  geomatic:'Standards, error quantification, QA procedures.',
+  materials:'Microstructure → properties → performance relationship.',
+  health:'Patient safety first, then regulatory and procedural compliance.',
+  business:'Quantify where possible, connect to Ghanaian economic context.',
+  safety:'Apply hierarchy of controls and quantified risk assessment.',
+};
+let dailyQData={q:'',hint:'',field:''};
+function loadDailyQuestion(field){
+  const f=field||S.profile?.program_category||S.field||'electrical';
+  const qs=DAILY_Q[f]||DAILY_Q.electrical;
+  const d=new Date();const idx=(d.getFullYear()*365+d.getMonth()*31+d.getDate())%qs.length;
+  dailyQData={q:qs[idx],hint:DAILY_HINT[f]||'Structure your answer with principles and examples.',field:f};
+  const qEl=$('#daily-q-text');if(qEl)qEl.textContent=dailyQData.q;
+  const fEl=$('#daily-q-field');if(fEl)fEl.textContent=FL[f]||f;
+  $(`#daily-q-feedback`)?.classList.add('hidden');
+  const ans=$('#daily-q-answer');if(ans)ans.value='';
+}
+function refreshDailyQ(){
+  const f=S.profile?.program_category||S.field||'electrical';
+  const qs=DAILY_Q[f]||DAILY_Q.electrical;
+  const idx=Math.floor(Math.random()*qs.length);
+  dailyQData={q:qs[idx],hint:DAILY_HINT[f]||'Structure your answer logically.',field:f};
+  $(`#daily-q-text`).textContent=dailyQData.q;
+  $(`#daily-q-feedback`)?.classList.add('hidden');
+  const ans=$('#daily-q-answer');if(ans)ans.value='';
+  toast('New practice question!','info');
+}
+async function submitDailyQ(){
+  const ans=$('#daily-q-answer')?.value.trim();
+  if(!ans||ans.length<15){toast('Write a proper answer first.','err');return}
+  const fb=$('#daily-q-feedback');if(fb){fb.textContent='⏳ Evaluating...';fb.classList.remove('hidden')}
+  const words=ans.split(/\s+/).length;
+  const kwCount=(FK[dailyQData.field]||[]).filter(k=>ans.toLowerCase().includes(k)).length;
+  const structured=/\b(first|second|then|finally|because|therefore|for example)\b/i.test(ans);
+  let c='';
+  if(words<25)c='⚡ Too brief — expand with detail and an example.';
+  else if(words>=80&&kwCount>=2&&structured)c='✅ Excellent — strong depth, technical vocabulary, and clear structure.';
+  else if(words>=50&&kwCount>=1)c='🟢 Good answer. A specific real-world example would make it outstanding.';
+  else c='🟡 Decent length. Add more technical terms and a step-by-step approach.';
+  if(fb)fb.textContent=c+'\n\n💡 Hint: '+dailyQData.hint;
+}
+function toggleDailyAnswer(){
+  const fb=$('#daily-q-feedback');
+  if(!fb)return;
+  if(!fb.classList.contains('hidden')&&fb.textContent.includes('Hint:')){fb.classList.add('hidden');return}
+  fb.textContent='💡 Approach: '+dailyQData.hint+'\n\nStructure your answer clearly, use technical terminology, and always support with a practical example from your studies or attachment experience.';
+  fb.classList.remove('hidden');
+}
+
+// ===== LIVE COACH TIP =====
+function showCoachTip(quality){
+  const tip=$('#coach-tip'),txt=$('#coach-tip-text');if(!tip||!txt)return;
+  const pool={strong:['Excellent! Interview-winning quality.','Outstanding depth — you know your field.'],partial:['Good answer — keep that detail level.','Solid structure. The interviewer will appreciate it.'],weak:['Try to elaborate more — aim for 60+ words.','Give a specific example to back that up.']};
+  txt.textContent=(pool[quality]||pool.weak)[Math.floor(Math.random()*2)];
+  tip.classList.remove('hidden');clearTimeout(S._coachTimer);
+  S._coachTimer=setTimeout(()=>tip.classList.add('hidden'),4500);
+}
+
+// ===== WORD COUNT METER =====
+function updateWCMeter(transcript){
+  const m=$('#wc-meter'),bar=$('#wc-bar'),lbl=$('#wc-label');if(!m)return;
+  const w=(transcript||'').trim().split(/\s+/).filter(Boolean).length;
+  m.classList.remove('hidden');const pct=Math.min(100,Math.round((w/80)*100));bar.style.width=pct+'%';
+  if(w<20){bar.style.background='#ef4444';lbl.textContent=`${w}w — too brief`;lbl.style.color='#f87171'}
+  else if(w<50){bar.style.background='#f59e0b';lbl.textContent=`${w}w — keep going`;lbl.style.color='#fbbf24'}
+  else if(w<80){bar.style.background='#10b981';lbl.textContent=`${w}w — good ✓`;lbl.style.color='#34d399'}
+  else{bar.style.background='linear-gradient(90deg,#10b981,#06b6d4)';lbl.textContent=`${w}w — excellent ✓✓`;lbl.style.color='#67e8f9'}
+}
+function hideWCMeter(){$('#wc-meter')?.classList.add('hidden')}
+
+// ===== CERTIFICATE =====
+function checkCertificate(score){if(score>=70){$('#cert-card')?.classList.remove('hidden');const m=$('#cert-msg');if(m)m.textContent=`🏆 You scored ${score}% — you're interview ready!`}}
+function downloadCertificate(){
+  const name=S.profile?.name||'Student',score=$('#sc-n')?.textContent||'70',field=S.fieldLabel||'Engineering';
+  const date=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+  const html=`<!DOCTYPE html><html><head><title>NS Prep Certificate</title><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet"><style>*{margin:0;box-sizing:border-box}body{font-family:'Outfit',sans-serif;background:#0d0d1a;color:#e2e8f0;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}.cert{max-width:680px;width:100%;background:#13131f;border:2px solid #7c3aed;border-radius:24px;padding:48px 56px;text-align:center;box-shadow:0 0 80px rgba(124,58,237,.3)}.logo{font-size:52px;margin-bottom:10px}.stamp{font-size:11px;letter-spacing:.25em;color:#6b7280;text-transform:uppercase;margin-bottom:20px}.h1{font-size:36px;font-weight:900;background:linear-gradient(135deg,#a78bfa,#67e8f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px}.sub{font-size:13px;color:#94a3b8;margin-bottom:28px}.name{font-size:30px;font-weight:900;color:#fff;border-bottom:2px solid #7c3aed;display:inline-block;padding-bottom:6px;margin-bottom:8px}.detail{font-size:14px;color:#94a3b8;margin-bottom:24px}.score{font-size:76px;font-weight:900;background:linear-gradient(135deg,#a78bfa,#67e8f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1}.score-sub{font-size:12px;color:#6b7280;margin-bottom:24px}.tag{display:inline-block;background:rgba(124,58,237,.15);color:#a78bfa;border:1px solid rgba(124,58,237,.3);border-radius:20px;padding:4px 16px;font-size:13px;font-weight:700;margin-bottom:28px}.footer{font-size:10px;color:#374151;margin-top:24px;padding-top:16px;border-top:1px solid #1a1a2e}@media print{body{background:#fff}.cert{box-shadow:none}}</style></head><body><div class="cert"><div class="logo">🎓</div><div class="stamp">Certificate of Achievement</div><div class="h1">NS Interview Prep</div><div class="sub">This certifies that</div><div class="name">${name}</div><div class="detail">successfully completed a mock national service interview in</div><div class="tag">${field}</div><br><div>achieving a score of</div><div class="score">${score}<span style="font-size:26px">%</span></div><div class="score-sub">out of 100</div><div class="footer">Issued by NS Interview Prep · ${date}</div></div><script>window.onload=()=>setTimeout(()=>window.print(),300)</script></body></html>`;
+  const w=window.open('','_blank');if(w){w.document.write(html);w.document.close()}else toast('Allow popups to download certificate.','err');
 }
 
 // ===== EVENTS =====
@@ -1294,9 +1474,15 @@ async function init(){
   if(!isSC())$(`#pw-prot`).style.display='flex';
   if(!stt.ok)$(`#pw-stt`).style.display='flex';
   const today=new Date().toISOString().split('T')[0];const sd=$('#inp-sdate');if(sd)sd.min=today;
-  apiHealth(); // non-blocking — don't await, let it run in background
-  // FIX: use onAuthStateChange as single source of truth, not getSession+manual check
+  apiHealth();
+
+  // Handle password reset redirect (Supabase sends user back with PASSWORD_RECOVERY event)
   sb.auth.onAuthStateChange(async(event,session)=>{
+    if(event==='PASSWORD_RECOVERY'){
+      // Show a reset password dialog
+      showPasswordResetUI();
+      return;
+    }
     if(event==='SIGNED_IN'&&session){
       S.user=session.user;
       await loadProfile(session.user);
@@ -1306,10 +1492,56 @@ async function init(){
       S.user=null;S.profile=null;showScreen('auth');
     }
   });
-  // Check for existing session on load
+
   const{data:{session}}=await sb.auth.getSession();
   if(!session)showScreen('auth');
-  // If session exists, onAuthStateChange will have already fired SIGNED_IN
+}
+
+function showPasswordResetUI(){
+  // Inject a simple reset password modal dynamically
+  const existing=$('#pw-reset-modal');if(existing)existing.remove();
+  const modal=document.createElement('div');
+  modal.id='pw-reset-modal';
+  modal.className='fixed inset-0 z-[200] flex items-center justify-center px-4';
+  modal.style.background='rgba(13,13,26,.95)';
+  modal.innerHTML=`
+    <div class="w-full max-w-sm rounded-2xl p-6 space-y-4" style="background:#13131f;border:1px solid #2d2d4e">
+      <div class="text-center">
+        <div class="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3 btn-glow" style="background:linear-gradient(135deg,#7c3aed,#06b6d4)"><i class="fa-solid fa-lock text-white text-lg"></i></div>
+        <h2 class="text-lg font-black text-white">Set New Password</h2>
+        <p class="text-xs text-slate-500 mt-1">Enter your new password below.</p>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 mb-1.5">New Password</label>
+        <div class="relative">
+          <input type="password" id="pr-pass" placeholder="Min 6 characters" class="w-full rounded-xl px-3 py-2.5 pr-10 text-sm text-white placeholder-slate-600 focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e">
+          <button type="button" onclick="togglePw('pr-pass',this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition" tabindex="-1"><i class="fa-solid fa-eye text-xs"></i></button>
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 mb-1.5">Confirm Password</label>
+        <input type="password" id="pr-pass2" placeholder="Repeat password" class="w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e">
+      </div>
+      <p id="pr-err" class="hidden text-xs text-red-400 font-medium"></p>
+      <button onclick="submitPasswordReset()" id="btn-pr" class="w-full py-3 rounded-xl text-sm font-black text-white btn-glow" style="background:linear-gradient(135deg,#7c3aed,#06b6d4);box-shadow:0 4px 20px rgba(124,58,237,.3)">Update Password</button>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function submitPasswordReset(){
+  const p=$('#pr-pass')?.value,p2=$('#pr-pass2')?.value;
+  const err=$('#pr-err'),btn=$('#btn-pr');
+  if(!p||p.length<6){if(err){err.textContent='Password must be at least 6 characters.';err.classList.remove('hidden')}return}
+  if(p!==p2){if(err){err.textContent='Passwords do not match.';err.classList.remove('hidden')}return}
+  if(err)err.classList.add('hidden');
+  if(btn){btn.disabled=true;btn.textContent='Updating...'}
+  const{error}=await sb.auth.updateUser({password:p});
+  if(btn){btn.disabled=false;btn.textContent='Update Password'}
+  if(error){if(err){err.textContent=error.message;err.classList.remove('hidden')}return}
+  toast('Password updated! You can now sign in.','ok');
+  $(`#pw-reset-modal`)?.remove();
+  await sb.auth.signOut();
+  showScreen('auth');
 }
 
 // polyfill roundRect for older browsers

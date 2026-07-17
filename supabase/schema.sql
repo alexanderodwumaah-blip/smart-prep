@@ -305,3 +305,10 @@ create policy "Admins manage all questions"
 alter table public.profiles add column if not exists program_category text;
 alter table public.profiles add column if not exists internship_info text;
 alter table public.profiles add column if not exists has_internship boolean default false;
+
+-- ── 11. SUPABASE AUTH CONFIG NOTE ──────────────────────────────────────────
+-- In Supabase Dashboard → Authentication → URL Configuration:
+-- Add your Vercel URL as a Redirect URL for password reset:
+--   https://smart-prep.vercel.app
+-- (or whatever your actual Vercel deployment URL is)
+-- This allows the "Forgot Password" reset link to redirect back to your app.

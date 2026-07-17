@@ -419,13 +419,62 @@ select optgroup{background:#13131f;color:#7c3aed;font-weight:700}
     <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background:rgba(245,158,11,.15)"><i class="fa-solid fa-lightbulb text-amber-400 text-xs"></i></div>
     <div><p class="text-xs font-bold text-amber-300 mb-0.5">Interview Tip of the Day</p><p class="text-[11px] text-slate-400 leading-relaxed" id="tip-text">Loading tip...</p></div>
   </div>
-  <!-- Recent Sessions -->
-  <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider">🎯 Recent Sessions</h2>
-  <div class="rounded-xl overflow-hidden" style="background:#13131f;border:1px solid #2d2d4e" id="dash-sessions">
-    <div class="p-6 text-center text-xs text-slate-600">No interviews yet — start your first one!</div>
+
+  <!-- Daily Practice Question -->
+  <div id="daily-q-card" class="rounded-xl p-4 space-y-2.5" style="background:linear-gradient(135deg,rgba(6,182,212,.06),rgba(124,58,237,.04));border:1px solid rgba(6,182,212,.2)">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2"><i class="fa-solid fa-fire text-cyan-400 text-xs"></i><span class="text-xs font-bold text-cyan-300">Daily Practice Question</span><span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style="background:rgba(6,182,212,.15);color:#67e8f9" id="daily-streak-badge">🔥 0 day streak</span></div>
+      <button onclick="refreshDailyQ()" class="text-[10px] text-slate-500 hover:text-cyan-400 transition"><i class="fa-solid fa-rotate-right"></i></button>
+    </div>
+    <p class="text-sm text-slate-200 leading-relaxed font-medium" id="daily-q-text">Loading today's question...</p>
+    <div id="daily-q-answer-wrap" class="space-y-2">
+      <textarea id="daily-q-answer" rows="3" placeholder="Type your answer here — practise out loud then write your best response..." class="w-full rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none resize-none transition" style="background:#0d0d1a;border:1px solid #2d2d4e"></textarea>
+      <button onclick="submitDailyQ()" class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white btn-glow" style="background:linear-gradient(135deg,#06b6d4,#7c3aed)"><i class="fa-solid fa-paper-plane"></i>Submit & Get Feedback</button>
+    </div>
+    <div id="daily-q-feedback" class="hidden rounded-xl p-3 text-xs leading-relaxed text-slate-300" style="background:rgba(6,182,212,.06);border:1px solid rgba(6,182,212,.15)"></div>
   </div>
-</div>
-</div>
+
+  <!-- Topic Weakness Radar -->
+  <div id="weakness-card" class="hidden rounded-xl p-4" style="background:#13131f;border:1px solid #2d2d4e">
+    <div class="flex items-center gap-2 mb-3"><i class="fa-solid fa-chart-radar text-violet-400 text-xs"></i><span class="text-xs font-bold text-slate-300">Your Weak Areas — Focus Here</span></div>
+    <div class="space-y-2" id="weakness-list"></div>
+  </div>
+
+  <!-- Admin Reply Notifications -->
+  <div id="admin-replies-card" class="hidden rounded-xl overflow-hidden" style="background:linear-gradient(135deg,rgba(16,185,129,.06),rgba(6,182,212,.03));border:1px solid rgba(16,185,129,.2)">
+    <div class="px-4 py-2.5 flex items-center gap-2" style="border-bottom:1px solid rgba(16,185,129,.1)">
+      <i class="fa-solid fa-reply text-emerald-400 text-xs"></i>
+      <span class="text-xs font-bold text-emerald-300">Admin Replied to Your Question</span>
+    </div>
+    <div id="admin-replies-list" class="divide-y" style="border-color:#1a1a2e"></div>
+  </div>
+
+  <!-- NSS Placement Company Directory -->
+  <div class="rounded-xl overflow-hidden" style="background:#13131f;border:1px solid #2d2d4e">
+    <div class="px-4 py-3 flex items-center justify-between" style="border-bottom:1px solid #1a1a2e">
+      <div class="flex items-center gap-2"><i class="fa-solid fa-building text-violet-400 text-xs"></i><span class="text-xs font-bold text-slate-300">NSS Placement Companies</span></div>
+      <span class="text-[10px] text-slate-600">Ghana</span>
+    </div>
+    <div class="p-3">
+      <input type="text" id="company-search" placeholder="Search by name or field..." oninput="filterCompanies(this.value)" class="w-full rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none mb-3 transition" style="background:#1a1a2e;border:1px solid #2d2d4e">
+      <div id="company-list" class="space-y-1.5 max-h-56 overflow-y-auto pr-1"></div>
+    </div>
+  </div>
+
+  <!-- Achievement Certificate -->
+  <div id="cert-card" class="hidden rounded-xl overflow-hidden" style="background:linear-gradient(135deg,rgba(245,158,11,.08),rgba(251,191,36,.04));border:1px solid rgba(245,158,11,.25)">
+    <div class="px-4 py-3 flex items-center gap-2" style="border-bottom:1px solid rgba(245,158,11,.1)">
+      <i class="fa-solid fa-trophy text-amber-400 text-sm"></i>
+      <span class="text-xs font-bold text-amber-300">Achievement Unlocked!</span>
+    </div>
+    <div class="p-4 text-center space-y-2">
+      <p class="text-sm text-slate-200" id="cert-msg">You scored 70%+</p>
+      <button onclick="downloadCertificate()" class="flex items-center gap-2 mx-auto px-4 py-2 rounded-xl text-xs font-bold text-white btn-glow" style="background:linear-gradient(135deg,#f59e0b,#d97706)">
+        <i class="fa-solid fa-download"></i>Download Certificate
+      </button>
+    </div>
+  </div>
+
 
 <!-- APTITUDE TESTS -->
 <div id="s-tests" class="scr flex-col pt-12 px-4 py-5 pb-safe">
@@ -718,6 +767,25 @@ select optgroup{background:#13131f;color:#7c3aed;font-weight:700}
 
     <div class="gl"></div>
 
+    <!-- Pre-interview checklist -->
+    <div id="preflight" class="rounded-xl p-3 space-y-2" style="background:#0d0d1a;border:1px solid #2d2d4e">
+      <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Pre-Interview Checklist</p>
+      <div class="space-y-1.5" id="checklist-items">
+        <div class="flex items-center gap-2.5" id="chk-field"><div class="w-4 h-4 rounded-full flex items-center justify-center shrink-0" style="background:#1a1a2e;border:1px solid #2d2d4e"><i class="fa-solid fa-xmark text-[8px] text-slate-600"></i></div><span class="text-[11px] text-slate-500">Select your field</span></div>
+        <div class="flex items-center gap-2.5" id="chk-https"><div class="w-4 h-4 rounded-full flex items-center justify-center shrink-0" style="background:#1a1a2e;border:1px solid #2d2d4e"><i class="fa-solid fa-xmark text-[8px] text-slate-600"></i></div><span class="text-[11px] text-slate-500">Secure connection (HTTPS)</span></div>
+        <div class="flex items-center gap-2.5" id="chk-chrome"><div class="w-4 h-4 rounded-full flex items-center justify-center shrink-0" style="background:#1a1a2e;border:1px solid #2d2d4e"><i class="fa-solid fa-xmark text-[8px] text-slate-600"></i></div><span class="text-[11px] text-slate-500">Chrome / Edge / Safari browser</span></div>
+        <div class="flex items-center gap-2.5" id="chk-online"><div class="w-4 h-4 rounded-full flex items-center justify-center shrink-0" style="background:#1a1a2e;border:1px solid #2d2d4e"><i class="fa-solid fa-xmark text-[8px] text-slate-600"></i></div><span class="text-[11px] text-slate-500">Backend server reachable</span></div>
+      </div>
+    </div>
+
+    <!-- Company Research Card (shows when company typed) -->
+    <div id="company-card" class="hidden rounded-xl p-3" style="background:linear-gradient(135deg,rgba(124,58,237,.06),rgba(6,182,212,.04));border:1px solid rgba(124,58,237,.2)">
+      <div class="flex items-center gap-2 mb-2"><i class="fa-solid fa-building text-violet-400 text-xs"></i><span class="text-xs font-bold text-violet-300" id="company-card-name">Company</span></div>
+      <div id="company-card-body" class="text-[11px] text-slate-400 leading-relaxed space-y-1"></div>
+    </div>
+
+    <div class="gl"></div>
+
     <button id="btn-start" disabled class="w-full py-3.5 rounded-xl text-sm font-black text-white transition btn-glow disabled:opacity-30 disabled:cursor-not-allowed" style="background:linear-gradient(135deg,#7c3aed,#06b6d4);box-shadow:0 4px 24px rgba(124,58,237,.35)">
       🎙️ Start Interview
     </button>
@@ -793,6 +861,34 @@ select optgroup{background:#13131f;color:#7c3aed;font-weight:700}
 
     <!-- Status + speaker test hint -->
     <p class="text-[11px] font-semibold mt-1 h-4 text-slate-400" id="d-st">Preparing...</p>
+
+    <!-- Live Coach Tip — appears briefly after each answer -->
+    <div id="coach-tip" class="hidden w-full max-w-sm mx-auto px-3 py-2 rounded-xl text-[11px] text-cyan-200 leading-relaxed mb-1" style="background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.2)">
+      <span class="font-bold text-cyan-400">💡 Coach: </span><span id="coach-tip-text"></span>
+    </div>
+
+    <!-- Word count confidence meter -->
+    <div id="wc-meter" class="hidden w-full max-w-sm mx-auto mb-1">
+      <div class="flex items-center justify-between mb-1">
+        <span class="text-[9px] text-slate-600 uppercase tracking-wider font-bold">Answer depth</span>
+        <span class="text-[9px] font-bold" id="wc-label" style="color:#6b7280">Start speaking...</span>
+      </div>
+      <div class="h-1 rounded-full overflow-hidden" style="background:#1a1a2e">
+        <div id="wc-bar" class="h-full rounded-full transition-all duration-300" style="width:0%;background:#6b7280"></div>
+      </div>
+    </div>
+
+    <!-- Live confidence meter (shows while listening) -->
+    <div id="confidence-wrap" class="hidden w-full max-w-xs mt-1 mb-1">
+      <div class="flex items-center justify-between mb-0.5">
+        <span class="text-[9px] font-bold text-slate-600 uppercase tracking-wider">Speaking Confidence</span>
+        <span class="text-[9px] font-bold text-slate-400" id="conf-pct">—</span>
+      </div>
+      <div class="h-1.5 rounded-full overflow-hidden" style="background:#1a1a2e">
+        <div id="conf-bar" class="h-full rounded-full transition-all duration-300" style="width:0%;background:linear-gradient(90deg,#10b981,#06b6d4)"></div>
+      </div>
+      <p class="text-[9px] text-slate-600 mt-0.5" id="conf-tip">Start speaking to see your confidence level</p>
+    </div>
 
     <!-- Transcript toggle bar -->
     <div class="w-full flex items-center justify-between mt-2 mb-1.5">
