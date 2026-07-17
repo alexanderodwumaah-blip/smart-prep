@@ -270,7 +270,72 @@ function resetSilenceTimer(){
 }
 function clearSilenceTimer(){if(S.silenceT){clearTimeout(S.silenceT);S.silenceT=null}}
 
-// ===== MEDIA — single getUserMedia, shared between video recorder + visualizer =====
+// ===== TRANSCRIPT TOGGLE =====
+let transcriptVisible=true;
+function toggleTranscript(){
+  transcriptVisible=!transcriptVisible;
+  const wrap=$('#ta-wrap'),eye=$('#transcript-eye'),lbl=$('#transcript-label'),dot=$('#transcript-dot');
+  if(transcriptVisible){
+    wrap.classList.remove('collapsed');
+    eye.className='fa-solid fa-eye text-[9px]';lbl.textContent='Hide';
+    dot.style.background='#7c3aed';
+  }else{
+    wrap.classList.add('collapsed');
+    eye.className='fa-solid fa-eye-slash text-[9px]';lbl.textContent='Show';
+    dot.style.background='#6b7280';
+  }
+}
+
+// ===== CAMERA TOGGLE =====
+function toggleCamera(){
+  const vid=$('#vid-prev'),icon=$('#cam-icon');
+  if(!S.vidStream){toast('Camera not available.','err');return}
+  if(vid.classList.contains('hidden')){
+    vid.classList.remove('hidden');icon.className='fa-solid fa-video text-xs';
+    toast('Camera on','ok');
+  }else{
+    vid.classList.add('hidden');icon.className='fa-solid fa-video-slash text-xs';
+    toast('Camera hidden','info');
+  }
+}
+
+// ===== CONFIRM LEAVE =====
+function confirmLeave(){
+  if(S.phase==='done'){showScreen('dash');return}
+  // Show a simple confirm overlay
+  const msg='Leave the interview? Your progress will be saved up to this point.';
+  if(confirm(msg)){
+    S.ending=true;
+    stt.stop();stopVisualizer();clearSilenceTimer();
+    if(S.maxT){clearTimeout(S.maxT);S.maxT=null}
+    tts.stop();
+    stopVideoRecording().then(()=>{
+      finaliseInterview();
+    });
+  }
+}
+
+// ===== SPEAKER TEST — plays a short 440Hz beep via Web Audio =====
+function testSpeaker(){
+  const btn=$('#btn-spk-test'),status=$('#spk-status');
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    const osc=ctx.createOscillator();
+    const gain=ctx.createGain();
+    osc.connect(gain);gain.connect(ctx.destination);
+    osc.frequency.value=440;osc.type='sine';
+    gain.gain.setValueAtTime(0.4,ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.8);
+    osc.start(ctx.currentTime);osc.stop(ctx.currentTime+0.8);
+    osc.onended=()=>{ctx.close()};
+    if(status)status.textContent='✅ Did you hear a beep? If yes, your speaker is working!';
+    if(status)status.style.color='#10b981';
+    if(btn)btn.textContent='🔊 Play Again';
+  }catch(e){
+    if(status)status.textContent='❌ Could not play audio: '+e.message;
+    if(status)status.style.color='#ef4444';
+  }
+}
 async function startMedia(){
   // Request video+audio together — one permission prompt, one stream
   try{
@@ -288,6 +353,7 @@ async function startMedia(){
     S.mediaRecorder=new MediaRecorder(S.vidStream,{mimeType:mime});
     S.mediaRecorder.ondataavailable=e=>{if(e.data.size>0)S.vidChunks.push(e.data)};
     S.mediaRecorder.start(1000);S.isRecording=true;
+    $(`#rec-dot`).classList.remove('hidden');$(`#rec-label`)?.classList.remove('hidden');
     return true;
   }catch(e){
     console.warn('Camera/mic unavailable:',e.message);
@@ -334,7 +400,10 @@ async function stopVideoRecording(){
       if(S.vidStream){S.vidStream.getTracks().forEach(t=>t.stop());S.vidStream=null}
       if(S.micStream){S.micStream.getTracks().forEach(t=>t.stop());S.micStream=null}
       if(S.audioCtx){S.audioCtx.close().catch(()=>{});S.audioCtx=null}
-      $(`#vid-self`).srcObject=null;$(`#vid-prev`).classList.add('hidden');$(`#rec-dot`).classList.add('hidden');
+      $(`#vid-self`).srcObject=null;
+      $(`#vid-prev`).classList.add('hidden');
+      $(`#rec-dot`).classList.add('hidden');
+      $(`#rec-label`)?.classList.add('hidden');
       if(S.user&&S.currentSessionId&&blob.size>5000){
         try{
           const path=`${S.user.id}/${S.currentSessionId}.webm`;
@@ -354,34 +423,61 @@ async function stopVideoRecording(){
 
 // ===== MIC TEST (standalone, doesn't affect main streams) =====
 async function mtGo(){
+  mtStop(); // clean up any previous test
   try{
-    S.mtStream=await navigator.mediaDevices.getUserMedia({audio:true});
+    S.mtStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
     S.mtCtx=new(window.AudioContext||window.webkitAudioContext)();
-    S.mtAn=S.mtCtx.createAnalyser();S.mtAn.fftSize=256;
+    // Must resume — some browsers suspend AudioContext until user gesture
+    if(S.mtCtx.state==='suspended')await S.mtCtx.resume();
+    S.mtAn=S.mtCtx.createAnalyser();S.mtAn.fftSize=512;
     S.mtCtx.createMediaStreamSource(S.mtStream).connect(S.mtAn);
     $(`#mt-go`).classList.add('hidden');$(`#mt-stop`).classList.remove('hidden');
-    $(`#mt-st`).textContent='Speak now — watching levels...';$(`#mt-st`).style.color='#888';
+    $(`#mt-st`).textContent='🟢 Mic active — speak now and watch the bars';
+    $(`#mt-st`).style.color='#10b981';
     drawMicTest();
-  }catch(e){$(`#mt-st`).textContent='Mic error: '+e.message;$(`#mt-st`).style.color='#ef4444'}
+  }catch(e){
+    $(`#mt-st`).textContent='❌ Mic error: '+e.message+' — check browser permissions.';
+    $(`#mt-st`).style.color='#ef4444';
+  }
 }
 function drawMicTest(){
-  const c=$('#mt-cv'),ctx=c.getContext('2d'),bins=S.mtAn.frequencyBinCount,data=new Uint8Array(bins);
+  const c=$('#mt-cv'),ctx=c.getContext('2d');
+  if(!c||!S.mtAn)return;
+  const bins=S.mtAn.frequencyBinCount,data=new Uint8Array(bins);
   function frame(){
-    S.mtAnim=requestAnimationFrame(frame);S.mtAn.getByteFrequencyData(data);
+    if(!S.mtAn){return}
+    S.mtAnim=requestAnimationFrame(frame);
+    S.mtAn.getByteFrequencyData(data);
     let avg=0;for(let i=0;i<bins;i++)avg+=data[i];avg/=bins;
     ctx.clearRect(0,0,c.width,c.height);
-    const bw=4,gap=1,cols=Math.floor(c.width/(bw+gap));
-    for(let i=0;i<cols;i++){const di=Math.floor(i*bins/cols),h=Math.max(2,(data[di]/255)*c.height*.9),a=0.4+(data[di]/255)*0.6;ctx.fillStyle=`rgba(34,197,94,${a})`;ctx.beginPath();ctx.roundRect(i*(bw+gap),c.height-h,bw,h,2);ctx.fill()}
-    const pct=Math.min(100,avg*1.5);$(`#mt-st`).textContent=pct>5?`Microphone working — ${Math.round(pct)}% level`:'No audio detected — check mic';$(`#mt-st`).style.color=pct>5?'#22c55e':'#f59e0b';
+    const bw=3,gap=1,cols=Math.floor(c.width/(bw+gap));
+    for(let i=0;i<cols;i++){
+      const di=Math.floor(i*bins/cols),h=Math.max(2,(data[di]/255)*c.height*.95);
+      const a=0.35+(data[di]/255)*0.65;
+      // colour shifts green when loud, violet when quiet
+      const r=avg>8?16:124,g=avg>8?185:58,b=avg>8?129:237;
+      ctx.fillStyle=`rgba(${r},${g},${b},${a})`;
+      ctx.beginPath();ctx.roundRect(i*(bw+gap),c.height-h,bw,h,1.5);ctx.fill();
+    }
+    const pct=Math.min(100,Math.round(avg*2.2));
+    const status=$('#mt-st');
+    if(status){
+      if(pct>25){status.textContent=`✅ Mic working — ${pct}% level. Looking good!`;status.style.color='#10b981';}
+      else if(pct>5){status.textContent=`🟡 Low signal ${pct}% — speak louder or check mic settings.`;status.style.color='#f59e0b';}
+      else{status.textContent='🔴 No audio — speak now, or check mic permissions in your browser.';status.style.color='#ef4444';}
+    }
   }
   frame();
 }
 function mtStop(){
   if(S.mtAnim){cancelAnimationFrame(S.mtAnim);S.mtAnim=null}
+  S.mtAn=null;
   if(S.mtStream){S.mtStream.getTracks().forEach(t=>t.stop());S.mtStream=null}
   if(S.mtCtx){S.mtCtx.close().catch(()=>{});S.mtCtx=null}
   $(`#mt-go`).classList.remove('hidden');$(`#mt-stop`).classList.add('hidden');
-  $(`#mt-st`).textContent='Click Start';$(`#mt-st`).style.color='';
+  $(`#mt-st`).textContent='Click Start Mic to test again.';$(`#mt-st`).style.color='#94a3b8';
+}
+  const c=$('#mt-cv');if(c)c.getContext('2d').clearRect(0,0,c.width,c.height);
 }
 
 // ===== API =====
@@ -664,7 +760,10 @@ function addMessage(role,text,interim){
 function removeInterim(){const e=$('#im-msg');if(e)e.remove()}
 function updateProgress(){
   const pct=(S.currentQ/S.totalQ)*100;
-  $(`#pbar`).style.width=pct+'%';$(`#d-cnt`).textContent=`Q ${Math.min(S.currentQ+1,S.totalQ)}/${S.totalQ}`;
+  $(`#pbar`).style.width=pct+'%';
+  const label=`Q ${Math.min(S.currentQ+1,S.totalQ)} / ${S.totalQ}`;
+  $(`#d-cnt`).textContent=label;
+  const footer=$('#d-cnt-footer');if(footer)footer.textContent=label;
 }
 function getVoiceCfg(){
   if(S.mode==='team'&&S.currentIV)return{gender:S.currentIV.gender,pitch:S.currentIV.pitch,rate:S.currentIV.rate};
@@ -699,19 +798,25 @@ async function startInt(){
   await beginInterview();
 }
 async function beginInterview(){
-  $(`#d-iname`).textContent=S.currentIV.name+' — '+S.currentIV.role;$(`#d-iname`).style.color=S.currentIV.color||'#888';
-  await sl(300);
+  $(`#d-iname`).textContent=S.currentIV.name+' — '+S.currentIV.role;
+  $(`#d-iname`).style.color=S.currentIV.color||'#888';
+
   const vc=getVoiceCfg();
   const progLabel=S.profile?.program?` — ${S.profile.program}`:'';
   const greeting=S.mode==='team'
-    ?`${gtg()}, ${S.name}. Welcome to your panel interview for ${S.fieldLabel}${progLabel}. ${S.currentIV.intro} To begin, please tell us about yourself.`
-    :`${gtg()}, ${S.name}. I'm ${S.currentIV.name}, your interviewer today. We're conducting a mock national service interview for ${S.fieldLabel}${progLabel}. I'll ask you ${S.totalQ} questions — please speak clearly and take your time. Let's begin — tell me about yourself.`;
+    ?`${gtg()}, ${S.name}. Welcome to your panel interview for ${S.fieldLabel}${progLabel}. ${S.currentIV.intro} Please start by telling us about yourself.`
+    :`${gtg()}, ${S.name}. I'm ${S.currentIV.name}, your interviewer today. We're doing a mock national service interview for ${S.fieldLabel}${progLabel}. I'll ask you ${S.totalQ} questions. Take your time and speak clearly. Let's begin — tell me about yourself.`;
+
+  // Show greeting in transcript immediately
   S.conversation.push({role:'ai',text:greeting,interviewer:S.currentIV.name});
   addMessage('ai',greeting,false);
   setPhase('speaking');
-  await startMedia(); // start camera + mic (single getUserMedia)
+
+  // Start media (camera+mic) in background — don't block speech
+  startMedia(); // fire-and-forget — permission prompt may appear but speech starts instantly
+
+  // Speak the greeting with no pre-delay
   await tts.speak(greeting,vc);
-  await sl(300);
   await startListening();
 }
 
@@ -748,7 +853,7 @@ async function processAnswer(text){
         "I didn't hear you clearly. Please try again or use the text box."
       ]);
       addMessage('ai',retry,false);S.conversation.push({role:'ai',text:retry,interviewer:S.currentIV.name});
-      await tts.speak(retry,getVoiceCfg());await sl(300);await startListening();return;
+      await tts.speak(retry,getVoiceCfg());await startListening();return;
     }
   }
   removeInterim();
@@ -779,22 +884,15 @@ async function processAnswer(text){
       response=ack?`${ack} ${correction}`:correction;
     }
     if(response&&response.trim()){
-      if(S.currentQ>=S.totalQ){
-        // Last question — say ack then go to close
-        setPhase('speaking');addMessage('ai',response,false);
-        S.conversation.push({role:'ai',text:response,interviewer:S.currentIV.name});
-        await tts.speak(response,getVoiceCfg());await sl(300);
-      }else{
-        setPhase('speaking');addMessage('ai',response,false);
-        S.conversation.push({role:'ai',text:response,interviewer:S.currentIV.name});
-        await tts.speak(response,getVoiceCfg());
-      }
+      setPhase('speaking');addMessage('ai',response,false);
+      S.conversation.push({role:'ai',text:response,interviewer:S.currentIV.name});
+      await tts.speak(response,getVoiceCfg());
     }
   }
 
   if(S.currentQ>=S.totalQ){await endInterview();return}
 
-  setPhase('processing');await sl(400);
+  setPhase('processing');await sl(120); // minimal delay — just enough for UI to update
   // Panel interviewer rotation
   if(S.mode==='team'&&S.currentQ%2===0){
     S.teamIdx++;S.currentIV=getCurrentInterviewer();
@@ -815,7 +913,9 @@ async function processAnswer(text){
   if(!question)question=fallbackQuestion(text,S.field,S.currentIV,S.currentQ);
   S.conversation.push({role:'ai',text:question,interviewer:S.currentIV.name});
   addMessage('ai',question,false);
-  setPhase('speaking');await tts.speak(question,getVoiceCfg());await sl(300);await startListening();
+  setPhase('speaking');
+  await tts.speak(question,getVoiceCfg());
+  await startListening(); // no extra delay — listen immediately after AI finishes
 }
 
 async function endInterview(){
@@ -1060,27 +1160,37 @@ function initEvents(){
   drop.addEventListener('dragleave',()=>drop.classList.remove('dg'));
   drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('dg');if(e.dataTransfer.files.length)handleCV(e.dataTransfer.files[0])});
   inp.addEventListener('change',()=>{if(inp.files.length)handleCV(inp.files[0])});
-  // Mic test
-  $(`#btn-mic`).addEventListener('click',()=>$(`#mt-area`).classList.toggle('hidden'));
-  $(`#mt-go`).addEventListener('click',mtGo);$(`#mt-stop`).addEventListener('click',mtStop);
+
+  // Mic + speaker test — single clean listener
+  $(`#btn-mic`).addEventListener('click',()=>{
+    const area=$(`#mt-area`);
+    const wasHidden=area.classList.contains('hidden');
+    area.classList.toggle('hidden');
+    // Auto-start mic test when panel opens
+    if(wasHidden&&!S.mtStream){
+      setTimeout(mtGo,200); // slight delay so the panel animates in first
+    }
+  });
+  $(`#mt-go`).addEventListener('click',mtGo);
+  $(`#mt-stop`).addEventListener('click',mtStop);
+  // Speaker test
+  $(`#btn-spk-test`)?.addEventListener('click',testSpeaker);
+
+  // Transcript toggle
+  const tBtn=$('#btn-transcript-toggle');if(tBtn)tBtn.addEventListener('click',toggleTranscript);
   // Server URL field
   $(`#adv-tog`).addEventListener('click',()=>{const p=$('#adv-p'),ch=$('#adv-ch');p.classList.toggle('hidden');ch.style.transform=p.classList.contains('hidden')?'':'rotate(180deg)'});
   const savedUrl=localStorage.getItem('ns_api_url')||'';if(savedUrl&&$('#inp-srv'))$(`#inp-srv`).value=savedUrl;
   $(`#inp-srv`)?.addEventListener('blur',()=>{const v=$('#inp-srv').value.trim();if(v)localStorage.setItem('ns_api_url',v);apiHealth()});
-  // End interview button — guard against double-firing
-  $(`#btn-end`).addEventListener('click',async()=>{
-    if(S.ending||S.phase==='done')return;
-    stt.stop();stopVisualizer();clearSilenceTimer();
-    if(S.maxT){clearTimeout(S.maxT);S.maxT=null}
-    await endInterview();
-  });
+  // Finish/End button — routes through confirmLeave
+  $(`#btn-end`).addEventListener('click',()=>confirmLeave());
   // Text input fallback
   function sendTyped(){const t=$('#inp-txt')?.value.trim();if(!t)return;S.isListening=false;processAnswer(t)}
   $(`#btn-send`).addEventListener('click',sendTyped);
   $(`#inp-txt`).addEventListener('keydown',e=>{if(e.key==='Enter')sendTyped()});
   // Nav logout
   $(`#nav-logout`).addEventListener('click',handleLogout);
-  // Warn before leaving during active interview
+  // Warn before browser close during active interview
   window.addEventListener('beforeunload',e=>{if(S.screen==='interview'&&!S.ending){e.preventDefault();e.returnValue='Your interview is in progress. Are you sure?'}});
 }
 
