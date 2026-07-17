@@ -993,6 +993,19 @@ select optgroup{background:#13131f;color:#7c3aed;font-weight:700}
       📊 Dashboard
     </button>
   </div>
+  <!-- Achievement certificate — shown when score ≥ 70% -->
+  <div id="cert-card" class="hidden rounded-xl overflow-hidden mt-3" style="background:linear-gradient(135deg,rgba(245,158,11,.08),rgba(251,191,36,.04));border:1px solid rgba(245,158,11,.25)">
+    <div class="px-4 py-3 flex items-center gap-2" style="border-bottom:1px solid rgba(245,158,11,.1)">
+      <i class="fa-solid fa-trophy text-amber-400 text-sm"></i>
+      <span class="text-xs font-bold text-amber-300">Achievement Unlocked!</span>
+    </div>
+    <div class="p-4 text-center space-y-2">
+      <p class="text-sm text-slate-200" id="cert-msg">You scored 70%+ — well done!</p>
+      <button onclick="downloadCertificate()" class="flex items-center gap-2 mx-auto px-5 py-2.5 rounded-xl text-xs font-bold text-white btn-glow" style="background:linear-gradient(135deg,#f59e0b,#d97706)">
+        <i class="fa-solid fa-download"></i>Download Certificate
+      </button>
+    </div>
+  </div>
 </div>
 </div>
 
