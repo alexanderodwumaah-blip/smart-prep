@@ -565,7 +565,6 @@ function mtStop(){
   if(S.mtCtx){S.mtCtx.close().catch(()=>{});S.mtCtx=null}
   $(`#mt-go`).classList.remove('hidden');$(`#mt-stop`).classList.add('hidden');
   $(`#mt-st`).textContent='Click Start Mic to test again.';$(`#mt-st`).style.color='#94a3b8';
-}
   const c=$('#mt-cv');if(c)c.getContext('2d').clearRect(0,0,c.width,c.height);
 }
 
