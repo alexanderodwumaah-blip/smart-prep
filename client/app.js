@@ -94,24 +94,41 @@ function buildNav(){
 
 // ===== AUTH =====
 function switchAuthTab(t){
+  // Hide/show forms
   $(`#form-login`).classList.toggle('hidden',t!=='login');
   $(`#form-signup`).classList.toggle('hidden',t!=='signup');
   $(`#form-forgot`)?.classList.add('hidden');
-  // Style active/inactive tabs with inline styles to match the new design
+  // Update tab button styles
   const li=$(`#tab-login`),su=$(`#tab-signup`);
-  li.style.cssText=t==='login'?'background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff':'color:#6b7280';
-  su.style.cssText=t==='signup'?'background:linear-gradient(135deg,#7c3aed,#06b6d4);color:#fff':'color:#6b7280';
+  if(t==='login'){
+    li.style.background='linear-gradient(135deg,#7c3aed,#6d28d9)';li.style.color='#fff';
+    su.style.background='';su.style.color='#6b7280';
+  } else {
+    su.style.background='linear-gradient(135deg,#7c3aed,#06b6d4)';su.style.color='#fff';
+    li.style.background='';li.style.color='#6b7280';
+  }
   $(`#auth-err`).classList.add('hidden');
 }
 
 async function handleLogin(){
   const btn=$('#btn-li'),e=$('#li-email').value.trim(),p=$('#li-pass').value;
-  if(!e||!p){showAE('Fill in all fields.');return}
+  if(!e||!p){showAE('Please fill in both email and password.');return}
   $(`#auth-err`).classList.add('hidden');
   if(btn){btn.disabled=true;btn.textContent='Signing in...'}
-  const{error}=await sb.auth.signInWithPassword({email:e,password:p});
+  const{data,error}=await sb.auth.signInWithPassword({email:e,password:p});
   if(btn){btn.disabled=false;btn.textContent='Sign In'}
-  if(error)showAE(error.message);
+  if(error){
+    // Give friendlier messages for common errors
+    if(error.message.includes('Invalid login')||error.message.includes('invalid_credentials'))
+      showAE('Incorrect email or password. Please check and try again.');
+    else if(error.message.includes('Email not confirmed'))
+      showAE('Please verify your email first. Check your inbox for a confirmation link.');
+    else
+      showAE(error.message);
+    return;
+  }
+  // If we have a session, onAuthStateChange fires — nothing else needed here
+  if(!data?.session)showAE('Sign in failed. Please try again.');
 }
 
 async function handleSignup(){
@@ -120,35 +137,57 @@ async function handleSignup(){
   let u=$('#su-uni').value;
   if(u==='other'){u=$('#su-uni-other')?.value.trim()||'Other';}
 
-  // Program: value format is "Program Label|fieldKey"
   const progRaw=$('#su-prog')?.value||'';
   let pr='', progCategory='';
   if(progRaw.startsWith('other')){
-    pr=$('#su-prog-other')?.value.trim()||'Other';
-    progCategory='other';
+    pr=$('#su-prog-other')?.value.trim()||'Other';progCategory='other';
   } else if(progRaw.includes('|')){
     [pr,progCategory]=progRaw.split('|');
-  } else {
-    pr=progRaw; progCategory='';
-  }
+  } else {pr=progRaw;progCategory='';}
 
   const e=$('#su-email').value.trim(), p=$('#su-pass').value;
-  if(!n||!e||!p){showAE('Name, email, and password required.');return}
-  if(p.length<6){showAE('Password must be at least 6 characters.');return}
+  if(!n){showAE('Please enter your full name.');return}
+  if(!e){showAE('Please enter your email address.');return}
+  if(!p||p.length<6){showAE('Password must be at least 6 characters.');return}
   $(`#auth-err`).classList.add('hidden');
   if(btn){btn.disabled=true;btn.textContent='Creating account...'}
+
   const{data,error}=await sb.auth.signUp({email:e,password:p,options:{data:{
     name:n,university:u,program:pr,program_category:progCategory
   }}});
+
   if(btn){btn.disabled=false;btn.textContent='Create Account'}
-  if(error){showAE(error.message);return}
-  // Clear form
-  ['su-name','su-prog-other','su-email','su-pass'].forEach(id=>{const el=$(`#${id}`);if(el)el.value=''});
+
+  if(error){
+    if(error.message.includes('already registered')||error.message.includes('already been registered'))
+      showAE('This email is already registered. Try signing in instead.');
+    else
+      showAE(error.message);
+    return;
+  }
+
+  // Clear form fields
+  ['su-name','su-prog-other','su-email','su-pass'].forEach(id=>{
+    const el=$(`#${id}`);if(el)el.value='';
+  });
   $(`#su-uni`).value='';$(`#su-prog`).value='';
   $(`#su-uni-other`)?.classList.add('hidden');
   $(`#su-prog-other`)?.classList.add('hidden');
-  if(data?.user&&data.session){toast('Welcome! Account created.','ok')}
-  else{toast('Account created! Check your email to verify, then sign in.','ok');switchAuthTab('login')}
+
+  if(data?.user&&data.session){
+    // Email confirmation is OFF — user is signed in immediately
+    toast('Welcome to NS Interview Prep!','ok');
+    // onAuthStateChange will handle navigation
+  } else if(data?.user&&!data.session){
+    // Email confirmation is ON — need to verify
+    showAE('');
+    $(`#auth-err`).innerHTML=`<i class="fa-solid fa-envelope mt-0.5 shrink-0" style="color:#06b6d4"></i><span style="color:#67e8f9">Account created! Check your email inbox for a verification link, then sign in.</span>`;
+    $(`#auth-err`).classList.remove('hidden');
+    switchAuthTab('login');
+  } else {
+    toast('Account created! Please sign in.','ok');
+    switchAuthTab('login');
+  }
 }
 
 function showAE(m){const e=$(`#auth-err`);e.innerHTML=`<i class="fa-solid fa-circle-exclamation mt-0.5 shrink-0"></i><span>${esc(m)}</span>`;e.classList.remove('hidden')}
@@ -1476,25 +1515,26 @@ async function init(){
   const today=new Date().toISOString().split('T')[0];const sd=$('#inp-sdate');if(sd)sd.min=today;
   apiHealth();
 
-  // Handle password reset redirect (Supabase sends user back with PASSWORD_RECOVERY event)
+  // Auth state — single source of truth with double-fire guard
+  let _authHandled=false;
   sb.auth.onAuthStateChange(async(event,session)=>{
-    if(event==='PASSWORD_RECOVERY'){
-      // Show a reset password dialog
-      showPasswordResetUI();
-      return;
-    }
+    if(event==='PASSWORD_RECOVERY'){showPasswordResetUI();return;}
     if(event==='SIGNED_IN'&&session){
+      if(_authHandled&&S.screen!=='auth')return; // skip re-navigation if already on a screen
+      _authHandled=true;
       S.user=session.user;
       await loadProfile(session.user);
       if(S.profile?.role==='admin'){loadAdmin();showScreen('admin')}
       else{loadDashboard();showScreen('dash')}
     }else if(event==='SIGNED_OUT'||event==='USER_DELETED'){
-      S.user=null;S.profile=null;showScreen('auth');
+      _authHandled=false;S.user=null;S.profile=null;showScreen('auth');
+    }else if(event==='TOKEN_REFRESHED'&&session&&S.user){
+      S.user=session.user; // silent refresh — no navigation
     }
   });
 
   const{data:{session}}=await sb.auth.getSession();
-  if(!session)showScreen('auth');
+  if(!session){showScreen('auth');_authHandled=false;}
 }
 
 function showPasswordResetUI(){
