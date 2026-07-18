@@ -556,8 +556,12 @@ async function startMedia(){
 
   // Step 2: Set up audio analyser immediately (so visualizer works)
   S.audioCtx=new(window.AudioContext||window.webkitAudioContext)();
-  if(S.audioCtx.state==='suspended')await S.audioCtx.resume();
-  S.analyser=S.audioCtx.createAnalyser();S.analyser.fftSize=128;
+  await S.audioCtx.resume(); // always force resume
+  S.analyser=S.audioCtx.createAnalyser();
+  S.analyser.fftSize=256;
+  S.analyser.minDecibels=-90;
+  S.analyser.maxDecibels=-10;
+  S.analyser.smoothingTimeConstant=0.8;
   S.audioCtx.createMediaStreamSource(audioStream).connect(S.analyser);
 
   // Step 3: Request camera separately — if denied, interview continues audio-only
@@ -640,60 +644,111 @@ async function stopVideoRecording(){
 }
 
 // ===== MIC TEST (standalone, doesn't affect main streams) =====
+// ===== MIC TEST =====
 async function mtGo(){
-  mtStop(); // clean up any previous test
+  // Clean up previous test without nulling mtAn yet (mtStop does that)
+  if(S.mtAnim){cancelAnimationFrame(S.mtAnim);S.mtAnim=null}
+  if(S.mtStream){S.mtStream.getTracks().forEach(t=>t.stop());S.mtStream=null}
+  if(S.mtCtx){try{await S.mtCtx.close()}catch(e){};S.mtCtx=null}
+  S.mtAn=null;
+
   try{
-    S.mtStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+    // Request mic permission
+    S.mtStream=await navigator.mediaDevices.getUserMedia({audio:{
+      echoCancellation:true,noiseSuppression:true,autoGainControl:true
+    },video:false});
+
+    // Create AudioContext and RESUME it (critical — browsers suspend it by default)
     S.mtCtx=new(window.AudioContext||window.webkitAudioContext)();
-    // Must resume — some browsers suspend AudioContext until user gesture
-    if(S.mtCtx.state==='suspended')await S.mtCtx.resume();
-    S.mtAn=S.mtCtx.createAnalyser();S.mtAn.fftSize=512;
-    S.mtCtx.createMediaStreamSource(S.mtStream).connect(S.mtAn);
-    $(`#mt-go`).classList.add('hidden');$(`#mt-stop`).classList.remove('hidden');
-    $(`#mt-st`).textContent='🟢 Mic active — speak now and watch the bars';
+    await S.mtCtx.resume(); // always force resume, not just if suspended
+
+    // Analyser with sensitive settings to pick up quiet voices
+    S.mtAn=S.mtCtx.createAnalyser();
+    S.mtAn.fftSize=256;          // smaller fftSize = faster response
+    S.mtAn.minDecibels=-90;      // very sensitive — picks up quiet sounds
+    S.mtAn.maxDecibels=-10;      // cap at -10dB to avoid clipping display
+    S.mtAn.smoothingTimeConstant=0.7; // smooth bars visually
+
+    // Connect mic stream → analyser
+    const src=S.mtCtx.createMediaStreamSource(S.mtStream);
+    src.connect(S.mtAn);
+
+    // Update UI
+    $(`#mt-go`).classList.add('hidden');
+    $(`#mt-stop`).classList.remove('hidden');
+    $(`#mt-st`).textContent='🟢 Mic active — speak now';
     $(`#mt-st`).style.color='#10b981';
+
+    // Start drawing AFTER analyser is ready
     drawMicTest();
+
   }catch(e){
-    $(`#mt-st`).textContent='❌ Mic error: '+e.message+' — check browser permissions.';
+    $(`#mt-st`).textContent='❌ '+e.message;
     $(`#mt-st`).style.color='#ef4444';
+    console.warn('Mic test error:',e);
   }
 }
+
 function drawMicTest(){
-  const c=$('#mt-cv'),ctx=c.getContext('2d');
+  const c=$('#mt-cv');
   if(!c||!S.mtAn)return;
-  const bins=S.mtAn.frequencyBinCount,data=new Uint8Array(bins);
+  const ctx=c.getContext('2d');
+  const bins=S.mtAn.frequencyBinCount; // = fftSize/2 = 128
+  const data=new Uint8Array(bins);
+  let peakPct=0;
+
   function frame(){
-    if(!S.mtAn){return}
+    if(!S.mtAn){ctx.clearRect(0,0,c.width,c.height);return}
     S.mtAnim=requestAnimationFrame(frame);
     S.mtAn.getByteFrequencyData(data);
-    let avg=0;for(let i=0;i<bins;i++)avg+=data[i];avg/=bins;
+
+    // Calculate average loudness
+    let sum=0;for(let i=0;i<bins;i++)sum+=data[i];
+    const avg=sum/bins;
+    const pct=Math.min(100,Math.round(avg*1.5)); // scale up for display
+    if(pct>peakPct)peakPct=pct;
+
+    // Draw bars
     ctx.clearRect(0,0,c.width,c.height);
-    const bw=3,gap=1,cols=Math.floor(c.width/(bw+gap));
-    for(let i=0;i<cols;i++){
-      const di=Math.floor(i*bins/cols),h=Math.max(2,(data[di]/255)*c.height*.95);
-      const a=0.35+(data[di]/255)*0.65;
-      // colour shifts green when loud, violet when quiet
-      const r=avg>8?16:124,g=avg>8?185:58,b=avg>8?129:237;
-      ctx.fillStyle=`rgba(${r},${g},${b},${a})`;
-      ctx.beginPath();ctx.roundRect(i*(bw+gap),c.height-h,bw,h,1.5);ctx.fill();
+    const bw=Math.floor(c.width/bins)-1;
+    for(let i=0;i<bins;i++){
+      const h=Math.max(1,(data[i]/255)*c.height);
+      // Green when loud, cyan when medium, violet when quiet
+      const loudness=data[i]/255;
+      const r=Math.round(16+loudness*108);  // 16→124
+      const g=Math.round(185-loudness*127); // 185→58
+      const bChannel=Math.round(129+loudness*108); // 129→237
+      ctx.fillStyle=`rgba(${r},${g},${bChannel},${0.5+loudness*0.5})`;
+      ctx.fillRect(i*(bw+1),c.height-h,bw,h);
     }
-    const pct=Math.min(100,Math.round(avg*2.2));
-    const status=$('#mt-st');
-    if(status){
-      if(pct>25){status.textContent=`✅ Mic working — ${pct}% level. Looking good!`;status.style.color='#10b981';}
-      else if(pct>5){status.textContent=`🟡 Low signal ${pct}% — speak louder or check mic settings.`;status.style.color='#f59e0b';}
-      else{status.textContent='🔴 No audio — speak now, or check mic permissions in your browser.';status.style.color='#ef4444';}
+
+    // Status text
+    const st=$('#mt-st');
+    if(st){
+      if(pct>=20){
+        st.textContent=`✅ Mic working! Level: ${pct}% — your microphone is detected.`;
+        st.style.color='#10b981';
+      }else if(pct>=5){
+        st.textContent=`🟡 Low signal (${pct}%) — speak louder or move closer to mic.`;
+        st.style.color='#f59e0b';
+      }else{
+        st.textContent='🔴 No audio detected — speak now, or check mic permissions in browser settings.';
+        st.style.color='#ef4444';
+      }
     }
   }
   frame();
 }
+
 function mtStop(){
   if(S.mtAnim){cancelAnimationFrame(S.mtAnim);S.mtAnim=null}
   S.mtAn=null;
   if(S.mtStream){S.mtStream.getTracks().forEach(t=>t.stop());S.mtStream=null}
   if(S.mtCtx){S.mtCtx.close().catch(()=>{});S.mtCtx=null}
-  $(`#mt-go`).classList.remove('hidden');$(`#mt-stop`).classList.add('hidden');
-  $(`#mt-st`).textContent='Click Start Mic to test again.';$(`#mt-st`).style.color='#94a3b8';
+  $(`#mt-go`).classList.remove('hidden');
+  $(`#mt-stop`).classList.add('hidden');
+  $(`#mt-st`).textContent='Click "Start Mic" to test again.';
+  $(`#mt-st`).style.color='#94a3b8';
   const c=$('#mt-cv');if(c)c.getContext('2d').clearRect(0,0,c.width,c.height);
 }
 
@@ -1774,14 +1829,19 @@ function initEvents(){
   drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('dg');if(e.dataTransfer.files.length)handleCV(e.dataTransfer.files[0])});
   inp.addEventListener('change',()=>{if(inp.files.length)handleCV(inp.files[0])});
 
-  // Mic + speaker test — single clean listener
+  // Mic + speaker test — clean single listener
   $(`#btn-mic`).addEventListener('click',()=>{
     const area=$(`#mt-area`);
     const wasHidden=area.classList.contains('hidden');
     area.classList.toggle('hidden');
-    // Auto-start mic test when panel opens
-    if(wasHidden&&!S.mtStream){
-      setTimeout(mtGo,200); // slight delay so the panel animates in first
+    if(wasHidden){
+      // Panel just opened — auto-start mic test after brief delay
+      setTimeout(()=>{
+        if(!area.classList.contains('hidden'))mtGo();
+      },300);
+    }else{
+      // Panel closing — stop any running test
+      mtStop();
     }
   });
   $(`#mt-go`).addEventListener('click',mtGo);
