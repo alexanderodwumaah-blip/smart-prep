@@ -25,62 +25,63 @@ const FL={electrical:'Electrical & Electronic Engineering',mechanical:'Mechanica
 const FK={electrical:['circuit','voltage','current','power','transformer','motor','generator','pcb','plc','relay','wiring','solar','inverter','grid','substation','earthing','switchgear'],mechanical:['cad','thermodynamics','fluid','machine','design','manufacturing','welding','lathe','milling','turbine','pump','bearing','gear','stress','strain','fatigue'],mining:['excavation','drilling','blasting','ore','mineral','tailings','ventilation','shaft','slope','geology','rock','gold','underground','surface','survey'],civil:['concrete','steel','structure','foundation','survey','highway','drainage','soil','beam','column','slab','load','reinforcement','construction','site'],computer:['programming','software','hardware','microcontroller','embedded','algorithm','database','network','python','java','c++','iot','sensor','firmware','linux','arduino'],chemical:['reaction','process','distillation','heat transfer','mass transfer','piping','reactor','catalyst','polymer','fluid flow','thermodynamics','separation','plant','safety'],petroleum:['reservoir','drilling','production','refining','crude','well','pipeline','exploration','formation','gas','oil','upstream','downstream'],aerospace:['aerodynamics','propulsion','structure','flight','aircraft','engine','turbine','lift','drag','composites','avionics','simulation'],agricultural:['irrigation','soil','crop','machinery','processing','farm','tractor','harvest','post-harvest','drainage','greenhouse','yield'],biomedical:['medical','device','implant','biomaterial','prosthetic','diagnostic','tissue','clinical','sterilization','regulatory','signal','imaging'],geomatic:['gis','survey','gps','remote sensing','mapping','cartography','geodesy','photogrammetry','lidar','spatial','coordinate'],materials:['metallurgy','composite','polymer','ceramic','corrosion','heat treatment','alloy','microstructure','testing','characterization']};
 
 // ===== INTERVIEWER NAME ARCHIVE — 30 Ghanaian names, reused across all fields =====
+// ===== INTERVIEWER NAME ARCHIVE — Ghanaian names with titles =====
 // Each entry: { prefix, last, gender, pitch, rate }
 // pitch/rate give each person a slightly distinct voice fingerprint
 const NAME_POOL = {
   male: [
-    {prefix:'Eng.',  last:'Asante',      pitch:.85, rate:.90},
-    {prefix:'Dr.',   last:'Mensah',      pitch:.92, rate:.88},
-    {prefix:'Mr.',   last:'Osei',        pitch:.84, rate:.89},
-    {prefix:'Eng.',  last:'Boateng',     pitch:.88, rate:.87},
-    {prefix:'Dr.',   last:'Frimpong',    pitch:.82, rate:.88},
-    {prefix:'Mr.',   last:'Appiah',      pitch:.88, rate:.90},
-    {prefix:'Eng.',  last:'Owusu',       pitch:.86, rate:.91},
-    {prefix:'Dr.',   last:'Darko',       pitch:.90, rate:.91},
-    {prefix:'Mr.',   last:'Adjei',       pitch:.85, rate:.89},
-    {prefix:'Eng.',  last:'Agyei',       pitch:.84, rate:.88},
-    {prefix:'Dr.',   last:'Baffour',     pitch:.90, rate:.90},
-    {prefix:'Mr.',   last:'Quaye',       pitch:.92, rate:.91},
-    {prefix:'Eng.',  last:'Peprah',      pitch:.88, rate:.91},
-    {prefix:'Dr.',   last:'Kumi',        pitch:.87, rate:.90},
-    {prefix:'Mr.',   last:'Ofori',       pitch:.88, rate:.90},
-    {prefix:'Eng.',  last:'Otibu',       pitch:.86, rate:.90},
-    {prefix:'Dr.',   last:'Donkor',      pitch:.90, rate:.89},
-    {prefix:'Mr.',   last:'Ntim',        pitch:.92, rate:.91},
-    {prefix:'Eng.',  last:'Amponsah',    pitch:.88, rate:.91},
-    {prefix:'Dr.',   last:'Antwi',       pitch:.88, rate:.91},
-    {prefix:'Mr.',   last:'Bediako',     pitch:.88, rate:.89},
-    {prefix:'Eng.',  last:'Asare',       pitch:.88, rate:.92},
-    {prefix:'Dr.',   last:'Tawiah',      pitch:.87, rate:.90},
-    {prefix:'Mr.',   last:'Acheampong',  pitch:.86, rate:.89},
-    {prefix:'Eng.',  last:'Boadu',       pitch:.86, rate:.90},
-    {prefix:'Dr.',   last:'Kusi',        pitch:.86, rate:.90},
-    {prefix:'Mr.',   last:'Sarpong',     pitch:.89, rate:.91},
-    {prefix:'Eng.',  last:'Adusei',      pitch:.86, rate:.90},
-    {prefix:'Dr.',   last:'Gyasi',       pitch:.87, rate:.88},
-    {prefix:'Mr.',   last:'Bonsu',       pitch:.90, rate:.89},
+    {prefix:'Ing.',       last:'Edem H.K.P',        pitch:.85, rate:.90},
+    {prefix:'Dr.',        last:'Baidoo',             pitch:.92, rate:.88},
+    {prefix:'Mr.',        last:'Osei',               pitch:.84, rate:.89},
+    {prefix:'Engr.',      last:'Osei Boateng',       pitch:.88, rate:.87},
+    {prefix:'Dr.',        last:'Frimpong',           pitch:.82, rate:.88},
+    {prefix:'Mr.',        last:'Appiah',             pitch:.88, rate:.90},
+    {prefix:'Ing.',       last:'Opoku Dwumaah',      pitch:.86, rate:.91},
+    {prefix:'Prof.',      last:'Kuffour Emmanuel',   pitch:.90, rate:.91},
+    {prefix:'Mr.',        last:'Adjei',              pitch:.85, rate:.89},
+    {prefix:'Engr.',      last:'Agyei O.T.',         pitch:.84, rate:.88},
+    {prefix:'Dr.',        last:'Baffour',            pitch:.90, rate:.90},
+    {prefix:'Ing. Prof.', last:'Nyantakyi',          pitch:.92, rate:.91},
+    {prefix:'Engr.',      last:'Gyimah A.A.',        pitch:.88, rate:.91},
+    {prefix:'Dr.',        last:'Kumi',               pitch:.87, rate:.90},
+    {prefix:'Mr.',        last:'Ofori',              pitch:.88, rate:.90},
+    {prefix:'Eng.',       last:'Otibu',              pitch:.86, rate:.90},
+    {prefix:'Dr.',        last:'Donkor',             pitch:.90, rate:.89},
+    {prefix:'Mr.',        last:'Ntim',               pitch:.92, rate:.91},
+    {prefix:'Ing.',       last:'Prince Ankrah',      pitch:.88, rate:.91},
+    {prefix:'Dr.',        last:'Antwi',              pitch:.88, rate:.91},
+    {prefix:'Mr.',        last:'Bediako',            pitch:.88, rate:.89},
+    {prefix:'Eng.',       last:'Asare',              pitch:.88, rate:.92},
+    {prefix:'Dr.',        last:'Tawiah',             pitch:.87, rate:.90},
+    {prefix:'Mr.',        last:'Acheampong',         pitch:.86, rate:.89},
+    {prefix:'Eng.',       last:'Boadu',              pitch:.86, rate:.90},
+    {prefix:'Dr.',        last:'Kusi',               pitch:.86, rate:.90},
+    {prefix:'Mr.',        last:'Sarpong',            pitch:.89, rate:.91},
+    {prefix:'Eng.',       last:'Adusei',             pitch:.86, rate:.90},
+    {prefix:'Dr.',        last:'Mawuli',             pitch:.87, rate:.88},
+    {prefix:'Mr.',        last:'Bonsu',              pitch:.90, rate:.89},
   ],
   female: [
-    {prefix:'Dr.',   last:'Amoah',       pitch:1.08, rate:.93},
-    {prefix:'Mrs.',  last:'Boateng',     pitch:1.10, rate:.94},
-    {prefix:'Ms.',   last:'Tetteh',      pitch:1.12, rate:.95},
-    {prefix:'Dr.',   last:'Asante',      pitch:1.08, rate:.93},
-    {prefix:'Mrs.',  last:'Ansah',       pitch:1.10, rate:.94},
-    {prefix:'Ms.',   last:'Acheampong',  pitch:1.10, rate:.95},
-    {prefix:'Dr.',   last:'Asamoah',     pitch:1.10, rate:.95},
-    {prefix:'Mrs.',  last:'Sarpong',     pitch:1.10, rate:.94},
-    {prefix:'Ms.',   last:'Fofie',       pitch:1.08, rate:.93},
-    {prefix:'Dr.',   last:'Bonsu',       pitch:1.10, rate:.94},
-    {prefix:'Mrs.',  last:'Owusu',       pitch:1.10, rate:.94},
-    {prefix:'Ms.',   last:'Amoako',      pitch:1.12, rate:.94},
-    {prefix:'Dr.',   last:'Forson',      pitch:1.10, rate:.94},
-    {prefix:'Mrs.',  last:'Asante',      pitch:1.10, rate:.94},
-    {prefix:'Ms.',   last:'Darko',       pitch:1.10, rate:.95},
-    {prefix:'Dr.',   last:'Mensah',      pitch:1.09, rate:.93},
-    {prefix:'Mrs.',  last:'Adusei',      pitch:1.10, rate:.94},
-    {prefix:'Ms.',   last:'Adjei',       pitch:1.11, rate:.95},
-    {prefix:'Dr.',   last:'Peprah',      pitch:1.08, rate:.92},
-    {prefix:'Mrs.',  last:'Amponsah',    pitch:1.10, rate:.94},
+    {prefix:'Dr.',        last:'Amoah',              pitch:1.08, rate:.93},
+    {prefix:'Mrs.',       last:'Boateng',            pitch:1.10, rate:.94},
+    {prefix:'Ing.',       last:'Tetteh',             pitch:1.12, rate:.95},
+    {prefix:'Dr.',        last:'Asante',             pitch:1.08, rate:.93},
+    {prefix:'Ing. Mrs.',  last:'Cinderella',         pitch:1.10, rate:.94},
+    {prefix:'Ing. Dr.',   last:'Tiffany',            pitch:1.10, rate:.95},
+    {prefix:'Dr.',        last:'Nana Ama',           pitch:1.10, rate:.95},
+    {prefix:'Dr. Mrs.',   last:'Lisa',               pitch:1.10, rate:.94},
+    {prefix:'Dr.',        last:'Saeeda',             pitch:1.08, rate:.93},
+    {prefix:'Dr. Mrs.',   last:'Baidoo',             pitch:1.10, rate:.94},
+    {prefix:'Engr. Mrs.', last:'Hannah',             pitch:1.10, rate:.94},
+    {prefix:'Dr.',        last:'Priscy',             pitch:1.12, rate:.94},
+    {prefix:'Dr.',        last:'Robbinson',          pitch:1.10, rate:.94},
+    {prefix:'Ing.',       last:'Rashida',            pitch:1.10, rate:.94},
+    {prefix:'Dr. Mrs.',   last:'Mavis',              pitch:1.10, rate:.95},
+    {prefix:'Prof. Mrs.', last:'Fatima',             pitch:1.09, rate:.93},
+    {prefix:'Mrs.',       last:'Mawuli',             pitch:1.10, rate:.94},
+    {prefix:'Ms.',        last:'Abena',              pitch:1.11, rate:.95},
+    {prefix:'Dr.',        last:'Peprah',             pitch:1.08, rate:.92},
+    {prefix:'Mrs.',       last:'Amponsah',           pitch:1.10, rate:.94},
   ],
 };
 
@@ -118,18 +119,19 @@ const EMOJIS_FEMALE = ['👩🏿‍💼','👩🏾‍💼','👩🏽‍💼','�
 // Build a single interviewer object from name pool
 function buildIV(nameEntry, role, color, emoji) {
   const name = nameEntry.prefix + ' ' + nameEntry.last;
+  const gender = resolveGender(nameEntry);
   return {
     name,
     role: role || 'Senior Professional',
-    gender: nameEntry.prefix === 'Mrs.' || nameEntry.prefix === 'Ms.' || nameEntry.prefix === 'Dr.' && NAME_POOL.female.some(f => f.last === nameEntry.last) ? 'female' : 'male',
+    gender,
     pitch: nameEntry.pitch,
     rate: nameEntry.rate,
     color: color || pk(COLORS),
-    emoji: emoji || (nameEntry.prefix === 'Mrs.' || nameEntry.prefix === 'Ms.' ? pk(EMOJIS_FEMALE) : pk(EMOJIS_MALE)),
+    emoji: emoji || pk(gender === 'female' ? EMOJIS_FEMALE : EMOJIS_MALE),
   };
 }
 
-// Properly determine gender from name pool lookup
+// Determine gender by checking which pool the entry belongs to
 function resolveGender(nameEntry) {
   if (NAME_POOL.female.some(f => f.last === nameEntry.last && f.prefix === nameEntry.prefix)) return 'female';
   return 'male';
@@ -226,15 +228,15 @@ function buildIntro(name, role, focus, field) {
 
 // SP kept for backward compat but values now come from pool at session start
 const SP = {
-  male:   {name:'Mr. Osei',  gender:'male',   pitch:0.85, rate:0.90, role:'Senior Engineer', focus:null, color:'#e8a023'},
-  female: {name:'Ms. Amoako',gender:'female', pitch:1.12, rate:0.94, role:'HR Manager',       focus:null, color:'#e8a023'},
+  male:   {name:'Ing. Edem H.K.P',  gender:'male',   pitch:0.85, rate:0.90, role:'Senior Engineer', focus:null, color:'#e8a023'},
+  female: {name:'Ing. Tetteh',       gender:'female', pitch:1.12, rate:0.94, role:'HR Manager',       focus:null, color:'#e8a023'},
 };
-// TM kept as fallback — overwritten per-session
+// TM kept as fallback — overwritten per-session in beginInterview()
 let TM = [
-  {name:'Ama Darko',   role:'HR Coordinator',  focus:'behavioral', color:'#3b82f6', pitch:1.10, rate:0.95, gender:'female', intro:"Good day. I'm Ama Darko, HR Coordinator. I'll be asking you about your background and teamwork."},
-  {name:'Mr. Osei',    role:'Technical Lead',   focus:'technical',  color:'#e8a023', pitch:0.84, rate:0.89, gender:'male',   intro:"I'm Mr. Osei, Technical Lead. I'll be assessing your technical knowledge and problem-solving."},
-  {name:'Dr. Mensah',  role:'Project Manager',  focus:'cv_project', color:'#8b5cf6', pitch:0.95, rate:0.92, gender:'male',   intro:"I'm Dr. Mensah. I'll focus on your projects, experience, and how you apply your knowledge."},
-  {name:'Eng. Boateng',role:'Senior Engineer',  focus:'scenario',   color:'#22c55e', pitch:0.88, rate:0.87, gender:'male',   intro:"I'm Engineer Boateng. I'll present you with real engineering scenarios to assess your judgement."},
+  {name:'Dr. Amoah',         role:'HR Coordinator',  focus:'behavioral', color:'#3b82f6', pitch:1.08, rate:0.93, gender:'female', intro:"Good day. I'm Dr. Amoah, HR Coordinator. I'll be asking you about your background and teamwork."},
+  {name:'Ing. Edem H.K.P',   role:'Technical Lead',  focus:'technical',  color:'#e8a023', pitch:0.85, rate:0.90, gender:'male',   intro:"I'm Ing. Edem H.K.P., Technical Lead. I'll be assessing your technical knowledge and problem-solving."},
+  {name:'Dr. Baffour',       role:'Project Manager',  focus:'cv_project', color:'#8b5cf6', pitch:0.90, rate:0.90, gender:'male',   intro:"I'm Dr. Baffour. I'll focus on your projects, experience, and how you apply your knowledge."},
+  {name:'Ing. Prof. Nyantakyi',role:'Senior Engineer',focus:'scenario',   color:'#22c55e', pitch:0.92, rate:0.91, gender:'male',   intro:"I'm Ing. Prof. Nyantakyi. I'll present you with real engineering scenarios to assess your judgement."},
 ];
 
 const FU={project:["Walk me through the technical approach for that project.","What was the most challenging aspect of that project?","What specific role did you play in the team?","If you could redo one aspect of that project, what would it be?","What tools and methods did you use, and why did you choose them?"],internship:["What specific technical tasks were you responsible for during that attachment?","How did the practical experience connect with what you learned in the classroom?","Can you describe a specific moment where you applied theory to a real problem?","What feedback did your supervisor give you about your performance?"],teamwork:["Can you give me a specific example of how you resolved a disagreement in that team?","How do you handle a team member who is not contributing their fair share?","In your experience, what is the most critical factor for effective teamwork?"],leadership:["How would you describe your leadership style?","Tell me about a time you had to motivate a group that was struggling.","What do you think is the difference between a good manager and a good leader?"],challenge:["Looking back, what would you do differently?","How did you manage the pressure during that period?","What did that experience teach you about yourself?"],skills:["Which of your technical skills do you consider your strongest, and why?","How have you continued to develop your skills outside of formal coursework?","Are there any specific skills you are actively working to improve right now?"],motivation:["What specifically drew you to this field of engineering?","Where do you see yourself professionally in five years?","What do you hope to contribute during your national service?"],academic:["Which courses from your program do you think will be most relevant in industry, and why?","Tell me about your final year project or dissertation.","How did you approach a particularly difficult course or subject?"]};
