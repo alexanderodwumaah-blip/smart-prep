@@ -161,6 +161,12 @@ select optgroup{background:#13131f;color:#7c3aed;font-weight:700}
 @media(max-width:360px){.md{padding:5px 2px}.mdi{font-size:.8rem}.mdl{font-size:.55rem}}
 @media(prefers-reduced-motion:reduce){.pt,.ar,.sba{animation:none!important}.ac.th{animation:none!important}.rec-dot{animation:none!important}*{transition-duration:.01ms!important}}
 
+/* ── PUSH-TO-TALK MIC BUTTON ── */
+.ptt-btn{transition:all .15s cubic-bezier(.4,0,.2,1)}
+.ptt-btn.ptt-listening{background:linear-gradient(135deg,#10b981,#06b6d4)!important;box-shadow:0 0 0 0 rgba(16,185,129,.6),0 4px 20px rgba(16,185,129,.4)!important;animation:ptt-pulse 1.5s ease-out infinite}
+.ptt-btn.ptt-disabled{background:rgba(107,114,128,.15)!important;box-shadow:none!important;color:#6b7280!important;cursor:not-allowed!important}
+@keyframes ptt-pulse{0%{box-shadow:0 0 0 0 rgba(16,185,129,.6),0 4px 20px rgba(16,185,129,.4)}70%{box-shadow:0 0 0 14px rgba(16,185,129,0),0 4px 20px rgba(16,185,129,.4)}100%{box-shadow:0 0 0 0 rgba(16,185,129,0),0 4px 20px rgba(16,185,129,.4)}}
+
 /* ── SPIN ── */
 .spin{animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
 
@@ -998,12 +1004,23 @@ select optgroup{background:#13131f;color:#7c3aed;font-weight:700}
     <!-- Transcript area -->
     <div class="ta w-full" id="ta-wrap" style="max-height:38vh;flex:1;min-height:0"><div id="transcript"></div></div>
 
-    <!-- Text input fallback -->
+    <!-- Push-to-talk mic button -->
+    <div class="w-full flex flex-col items-center gap-2 mt-2 shrink-0">
+      <button id="btn-ptt"
+        class="ptt-btn flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-black text-white transition-all duration-150 btn-glow"
+        style="background:linear-gradient(135deg,#7c3aed,#06b6d4);box-shadow:0 4px 20px rgba(124,58,237,.35);min-width:180px;justify-content:center">
+        <i class="fa-solid fa-microphone text-base" id="ptt-icon"></i>
+        <span id="ptt-label">Tap to Answer</span>
+      </button>
+      <p class="text-[10px] text-slate-600 font-medium" id="ptt-hint">Tap once to start speaking, tap again when done</p>
+    </div>
+
+    <!-- Text chat — always visible so user can type at any time -->
     <div class="w-full flex gap-2 mt-2 shrink-0">
-      <input type="text" id="inp-txt" placeholder="Type your answer if mic unavailable..." disabled
-        class="flex-1 rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none transition disabled:opacity-25"
+      <input type="text" id="inp-txt" placeholder="Or type your answer here..."
+        class="flex-1 rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none transition"
         style="background:#1a1a2e;border:1px solid #2d2d4e">
-      <button id="btn-send" disabled class="px-4 py-2.5 rounded-xl text-xs font-bold transition disabled:opacity-25 disabled:cursor-not-allowed shrink-0"
+      <button id="btn-send" class="px-4 py-2.5 rounded-xl text-xs font-bold transition shrink-0"
         style="background:rgba(124,58,237,.2);color:#a78bfa;border:1px solid rgba(124,58,237,.3)">Send</button>
     </div>
   </main>

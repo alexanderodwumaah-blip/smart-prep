@@ -463,7 +463,98 @@ function handleSetupFieldChange(sel){
   if(startBtn)startBtn.disabled=!v;
 }
 
-// ===== TTS — richer voice, sentence-aware pacing, interruptible =====
+// ===== TTS NAME PRONUNCIATION PREPROCESSOR =====
+// Converts titles and Ghanaian names to natural phonetic forms for Web Speech API
+function preprocessTTS(text) {
+  if (!text) return text;
+  let t = text;
+
+  // ── Titles: expand abbreviations so TTS doesn't spell them out ──────────
+  // Order matters: longer/specific patterns first
+  t = t.replace(/\bIng\.\s*Prof\.\s*/g, 'Engineer Professor ');
+  t = t.replace(/\bEngr\.\s*Mrs\.\s*/g, 'Engineer Mrs ');
+  t = t.replace(/\bEng\.\s*Mrs\.\s*/g, 'Engineer Mrs ');
+  t = t.replace(/\bIng\.\s*Mrs\.\s*/g, 'Engineer Mrs ');
+  t = t.replace(/\bIng\.\s*Dr\.\s*/g, 'Engineer Doctor ');
+  t = t.replace(/\bDr\.\s*Mrs\.\s*/g, 'Doctor Mrs ');
+  t = t.replace(/\bProf\.\s*Mrs\.\s*/g, 'Professor Mrs ');
+  t = t.replace(/\bProf\.\s*/g, 'Professor ');
+  t = t.replace(/\bEngr\.\s*/g, 'Engineer ');
+  t = t.replace(/\bIng\.\s*/g, 'Engineer ');
+  t = t.replace(/\bEng\.\s*/g, 'Engineer ');
+  t = t.replace(/\bDr\.\s*/g, 'Doctor ');
+  t = t.replace(/\bMrs\.\s*/g, 'Missus ');
+  t = t.replace(/\bMs\.\s*/g, 'Miz ');
+  t = t.replace(/\bMr\.\s*/g, 'Mister ');
+
+  // ── Ghanaian name pronunciations (phonetic hints for Web Speech) ──────────
+  // Key: common Ghanaian names that TTS mispronounces badly
+  const ghNames = {
+    'Edem':      'Eh-dem',
+    'Kwame':     'Kwah-meh',
+    'Kofi':      'Koh-fee',
+    'Kojo':      'Koh-joh',
+    'Akua':      'Ah-kwah',
+    'Abena':     'Ah-beh-nah',
+    'Ama':       'Ah-mah',
+    'Adwoa':     'Ah-jwah',
+    'Yaa':       'Yah',
+    'Nana':      'Nah-nah',
+    'Nyantakyi': 'Nyan-tah-chee',
+    'Opoku':     'Oh-poh-ku',
+    'Acheampong':'Ah-chee-am-pong',
+    'Frimpong':  'Frim-pong',
+    'Asante':    'Ah-san-teh',
+    'Osei':      'Oh-say',
+    'Boateng':   'Boh-ah-teng',
+    'Agyei':     'Ah-jee',
+    'Dwumaah':   'Jwoo-mah',
+    'Tetteh':    'Teh-teh',
+    'Amoah':     'Ah-moh-ah',
+    'Baidoo':    'By-doh',
+    'Kuffour':   'Koo-for',
+    'Appiah':    'Ah-pee-ah',
+    'Donkor':    'Don-kor',
+    'Peprah':    'Peh-prah',
+    'Mawuli':    'Mah-woo-lee',
+    'Baffour':   'Bah-for',
+    'Gyimah':    'Jee-mah',
+    'Tawiah':    'Tah-wee-ah',
+    'Ankrah':    'An-krah',
+    'Adjei':     'Ah-jee',
+    'Otibu':     'Oh-tee-boo',
+    'Boadu':     'Boh-ah-du',
+    'Bonsu':     'Bon-su',
+    'Adusei':    'Ah-doo-say',
+    'Sarpong':   'Sar-pong',
+    'Amponsah':  'Am-pon-sah',
+    'Kusi':      'Koo-see',
+    'Ofori':     'Oh-for-ee',
+    'Asare':     'Ah-sah-reh',
+    'Ntim':      'N-tim',
+    'Bediako':   'Beh-dee-ah-koh',
+    'Antwi':     'An-chwee',
+    'Rashida':   'Rah-shee-dah',
+    'Robbinson': 'Rob-in-son',
+    'Priscy':    'Pris-ee',
+    'Saeeda':    'Sah-ee-dah',
+  };
+
+  // Replace whole-word matches only
+  for (const [name, phonetic] of Object.entries(ghNames)) {
+    const re = new RegExp(`\\b${name}\\b`, 'g');
+    t = t.replace(re, phonetic);
+  }
+
+  // ── Remove or replace initials like "H.K.P" → "H K P" ──────────────────
+  // e.g. "Edem H.K.P" → "Eh-dem H K P" (spoken as letters, not "hkp")
+  t = t.replace(/\b([A-Z])\.([A-Z])\.([A-Z])\b/g, '$1 $2 $3');
+  t = t.replace(/\b([A-Z])\.([A-Z])\b/g, '$1 $2');
+
+  return t;
+}
+
+
 const tts={
   syn:window.speechSynthesis,mV:null,fV:null,_ready:false,
   init(){
@@ -489,8 +580,10 @@ const tts={
   async speak(text,cfg){
     S.isSpeaking=true;
     this.syn.cancel();
+    // Preprocess text for natural pronunciation (titles, Ghanaian names)
+    const processed = preprocessTTS(text);
     // Split on sentence boundaries for more natural pacing
-    const segs=text.match(/[^.!?]+[.!?]+(?:\s|$)|[^.!?]+$/g)||[text];
+    const segs=processed.match(/[^.!?]+[.!?]+(?:\s|$)|[^.!?]+$/g)||[processed];
     for(let i=0;i<segs.length;i++){
       // Check for interruption between sentences
       if(!S.isSpeaking)break;
@@ -520,33 +613,31 @@ const tts={
   _pickVoice(gender){return gender==='female'?(this.fV||this.mV):(this.mV||this.fV)}
 };
 
-// ===== SMART STT — VAD + Whisper + Web Speech interim display =====
+// ===== PUSH-TO-TALK STT =====
 //
-// Architecture:
-//   1. Web Speech API  → live interim text display ONLY (visual feedback)
-//   2. MediaRecorder   → captures raw audio chunks the whole time
-//   3. Web Audio VAD   → detects speech/silence via energy threshold
-//   4. On "done":      → send audio blob to /api/transcribe (Whisper) for
-//                         accurate final transcript; fall back to Web Speech final text
+// Architecture (zero-lag design):
+//   1. User taps mic button → recording starts + Web Speech starts (live interim)
+//   2. User taps mic button again (or silence > 3s after speech) → recording stops
+//   3. IMMEDIATELY use Web Speech accumulated text as the answer (zero lag)
+//   4. In the background, optionally send audio to Whisper for higher accuracy
+//      — if Whisper comes back before AI response, it upgrades the transcript
+//      — if not, the Web Speech text is used (still very good for clear English)
 //
-// "Done" is triggered when:
-//   a) 2.5s of continuous silence AFTER at least 1 word was heard, OR
-//   b) user manually hits Submit/Enter, OR
-//   c) 90s safety timeout
-//
-// Interruption: if user speaks while TTS is playing → TTS is stopped immediately
+// This means the AI responds instantly the moment the user taps "done".
 
 const stt = {
-  // ── Web Speech (interim display only) ──────────────────────────────────
+  // ── Web Speech (live transcript + final answer source) ──────────────────
   rec: null, wsOk: false,
-  // ── Audio recording ─────────────────────────────────────────────────────
+  // ── Audio recording (for background Whisper upgrade) ────────────────────
   recorder: null, chunks: [], audioStream: null,
-  // ── VAD state ───────────────────────────────────────────────────────────
+  // ── VAD state (auto-stop after silence) ──────────────────────────────────
   vadNode: null, vadInterval: null,
   speechDetected: false, silenceMs: 0,
-  SPEECH_THRESH: 18,   // energy level 0-255 above which we consider "speech"
-  SILENCE_WAIT: 2500,  // ms of silence to wait before submitting
-  VAD_TICK: 80,        // ms between VAD checks
+  SPEECH_THRESH: 16,
+  SILENCE_WAIT: 3000,   // 3s silence after speech auto-stops (longer = less cutting off)
+  VAD_TICK: 80,
+  // ── Push-to-talk state ───────────────────────────────────────────────────
+  pttActive: false,     // true while user is holding/toggled the mic on
   // ── Callbacks ───────────────────────────────────────────────────────────
   _onResult: null, _onEnd: null,
 
@@ -561,7 +652,7 @@ const stt = {
     }
   },
 
-  // ── Start listening ─────────────────────────────────────────────────────
+  // ── Start push-to-talk session ─────────────────────────────────────────
   start(onResult, onEnd) {
     this._onResult = onResult;
     this._onEnd = onEnd;
@@ -569,20 +660,17 @@ const stt = {
     this.chunks = [];
     this.speechDetected = false;
     this.silenceMs = 0;
+    this.pttActive = true;
+    this._onEnd = onEnd;
 
-    // 1. Start Web Speech for live interim display
     this._startWebSpeech();
-
-    // 2. Start MediaRecorder on the existing audio stream (from startMedia)
     this._startRecorder();
-
-    // 3. Start VAD loop
     this._startVAD();
 
     return true;
   },
 
-  // ── Web Speech (display only, NOT used for final transcript) ────────────
+  // ── Web Speech: live interim display + accumulate final text ────────────
   _startWebSpeech() {
     if (!this.wsOk) return;
     let wsAccum = '';
@@ -602,7 +690,6 @@ const stt = {
         S.interimTxt = interim;
       }
       if (this._onResult) this._onResult(S.finalTxt, S.interimTxt);
-      // Reset VAD silence counter when Web Speech confirms speech
       this.silenceMs = 0;
       this.speechDetected = true;
     };
@@ -617,9 +704,8 @@ const stt = {
     try { this.rec.start(); } catch (e) {}
   },
 
-  // ── MediaRecorder: capture raw audio ────────────────────────────────────
+  // ── MediaRecorder: capture raw audio for background Whisper upgrade ──────
   _startRecorder() {
-    // Prefer the existing mic stream from startMedia
     const stream = S.micStream || (S.vidStream
       ? new MediaStream(S.vidStream.getAudioTracks())
       : null);
@@ -636,14 +722,14 @@ const stt = {
       this.recorder.ondataavailable = e => {
         if (e.data && e.data.size > 0) this.chunks.push(e.data);
       };
-      this.recorder.start(200); // collect in 200ms chunks for low latency
+      this.recorder.start(200);
       this.audioStream = stream;
     } catch (err) {
       console.warn('stt recorder failed:', err.message);
     }
   },
 
-  // ── VAD loop: energy-based voice activity detection ─────────────────────
+  // ── VAD: auto-stop if 3s silence AFTER speech detected ──────────────────
   _startVAD() {
     if (!S.analyser) return;
     const data = new Uint8Array(S.analyser.frequencyBinCount);
@@ -652,30 +738,24 @@ const stt = {
       if (!S.isListening) return;
       S.analyser.getByteFrequencyData(data);
 
-      // Average energy of speech-range frequencies (300Hz–3kHz)
-      // For fftSize=256 and typical sampleRate=48000, bin width ≈ 187Hz
-      // bins 2-16 cover roughly 300Hz–3000Hz
       let sum = 0, count = 0;
       const lo = 2, hi = Math.min(16, data.length - 1);
       for (let i = lo; i <= hi; i++) { sum += data[i]; count++; }
       const energy = count > 0 ? sum / count : 0;
 
       if (energy > this.SPEECH_THRESH) {
-        // ── Active speech detected ──────────────────────────────────────
         this.speechDetected = true;
         this.silenceMs = 0;
-
-        // INTERRUPT TTS if user starts talking while interviewer is speaking
+        // INTERRUPT TTS if user speaks while interviewer is speaking
         if (S.isSpeaking) {
           tts.stop();
           setPhase('listening');
         }
       } else {
-        // ── Silence ─────────────────────────────────────────────────────
         if (this.speechDetected) {
           this.silenceMs += this.VAD_TICK;
           if (this.silenceMs >= this.SILENCE_WAIT) {
-            // User has been silent long enough — submit
+            // Auto-stop after long silence
             this.stop();
           }
         }
@@ -683,70 +763,68 @@ const stt = {
     }, this.VAD_TICK);
   },
 
-  // ── Stop listening and submit ────────────────────────────────────────────
+  // ── Stop (called by PTT button tap OR auto-silence) ─────────────────────
   stop() {
-    if (!S.isListening) return;
+    if (!S.isListening) return; // guard — already stopped
     S.isListening = false;
+    this.pttActive = false;
 
-    // Stop VAD
     if (this.vadInterval) { clearInterval(this.vadInterval); this.vadInterval = null; }
     this.silenceMs = 0;
     clearSilenceTimer();
 
-    // Stop Web Speech
     try { if (this.rec) this.rec.stop(); } catch (e) {}
 
-    // Stop recorder and get blob
-    if (this.recorder && this.recorder.state !== 'inactive') {
-      this.recorder.onstop = () => { this._submitAudio(); };
-      try { this.recorder.stop(); } catch (e) { this._submitAudio(); }
-    } else {
-      this._submitAudio();
-    }
-  },
-
-  // ── Send audio to Whisper, fall back to Web Speech text ─────────────────
-  async _submitAudio() {
+    // STEP 1: Immediately use whatever Web Speech has accumulated — ZERO lag
     const wsText = (S.finalTxt || S.interimTxt || '').trim();
 
-    if (this.chunks.length === 0) {
-      // No audio recorded — use whatever Web Speech gave us
-      if (this._onEnd) this._onEnd(wsText);
-      return;
+    // Stop recorder to get audio blob for background Whisper upgrade
+    if (this.recorder && this.recorder.state !== 'inactive') {
+      const chunks = [...this.chunks];
+      const mimeType = this.recorder.mimeType || 'audio/webm';
+      this.recorder.onstop = () => {
+        this._upgradeWithWhisper(chunks, mimeType);
+        this.recorder = null;
+      };
+      try { this.recorder.stop(); } catch (e) { this.recorder = null; }
     }
 
-    // Try Whisper transcription if server is up
-    let whisperText = '';
-    if (S.serverUp) {
-      try {
-        const mimeType = this.recorder?.mimeType || 'audio/webm';
-        const ext = mimeType.includes('ogg') ? '.ogg' : '.webm';
-        const blob = new Blob(this.chunks, { type: mimeType });
-        // Only send if audio is substantial (>2KB = has real content)
-        if (blob.size > 2000) {
-          const fd = new FormData();
-          fd.append('audio', blob, 'answer' + ext);
-          const resp = await fetch(getAPI() + '/api/transcribe', {
-            method: 'POST',
-            body: fd,
-            signal: AbortSignal.timeout(15000),
-          });
-          if (resp.ok) {
-            const data = await resp.json();
-            whisperText = (data.transcript || '').trim();
-          }
-        }
-      } catch (err) {
-        console.warn('Whisper transcription failed, falling back to Web Speech:', err.message);
-      }
-    }
-
+    // Deliver answer immediately — don't wait for Whisper
     this.chunks = [];
-    // Prefer Whisper result; fall back to Web Speech accumulation
-    const finalText = whisperText || wsText;
-    if (this._onEnd) this._onEnd(finalText);
+    if (this._onEnd) this._onEnd(wsText);
+  },
+
+  // ── Background Whisper upgrade — corrects transcript after answer is processed ─
+  // Only called if we want to upgrade the *next* display; current answer already submitted.
+  // Store result so the conversation record can be updated silently.
+  async _upgradeWithWhisper(chunks, mimeType) {
+    if (!S.serverUp || !chunks.length) return;
+    try {
+      const ext = mimeType.includes('ogg') ? '.ogg' : '.webm';
+      const blob = new Blob(chunks, { type: mimeType });
+      if (blob.size < 2000) return; // too short = silence
+      const fd = new FormData();
+      fd.append('audio', blob, 'answer' + ext);
+      const resp = await fetch(getAPI() + '/api/transcribe', {
+        method: 'POST',
+        body: fd,
+        signal: AbortSignal.timeout(20000),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        const upgraded = (data.transcript || '').trim();
+        // If Whisper gives a substantially better result (longer/different), store it
+        if (upgraded && upgraded.length > 5) {
+          S._whisperUpgrade = upgraded;
+        }
+      }
+    } catch (err) {
+      console.warn('Background Whisper upgrade failed:', err.message);
+    }
   },
 };
+
+
 
 function resetSilenceTimer() {
   clearSilenceTimer();
@@ -756,6 +834,81 @@ function resetSilenceTimer() {
 function clearSilenceTimer() {
   if (S.silenceT) { clearTimeout(S.silenceT); S.silenceT = null; }
 }
+
+// ===== PTT BUTTON STATE MANAGER =====
+function setPTTState(state) {
+  // state: 'idle' | 'listening' | 'disabled' | 'speaking'
+  const btn = $('#btn-ptt');
+  const icon = $('#ptt-icon');
+  const label = $('#ptt-label');
+  const hint = $('#ptt-hint');
+  if (!btn) return;
+
+  btn.classList.remove('ptt-listening', 'ptt-disabled');
+
+  switch (state) {
+    case 'listening':
+      btn.classList.add('ptt-listening');
+      if (icon) icon.className = 'fa-solid fa-stop text-base';
+      if (label) label.textContent = 'Tap to Finish';
+      if (hint) hint.textContent = 'Speaking... tap when done answering';
+      btn.disabled = false;
+      break;
+    case 'speaking':
+      btn.classList.add('ptt-disabled');
+      if (icon) icon.className = 'fa-solid fa-volume-high text-base';
+      if (label) label.textContent = 'Interviewer Speaking...';
+      if (hint) hint.textContent = 'Tap to interrupt if needed';
+      btn.disabled = false; // allow interrupt
+      break;
+    case 'processing':
+      btn.classList.add('ptt-disabled');
+      if (icon) icon.className = 'fa-solid fa-spinner fa-spin text-base';
+      if (label) label.textContent = 'Processing...';
+      if (hint) hint.textContent = 'Preparing your next question';
+      btn.disabled = true;
+      break;
+    case 'disabled':
+      btn.classList.add('ptt-disabled');
+      if (icon) icon.className = 'fa-solid fa-microphone-slash text-base';
+      if (label) label.textContent = 'Mic Unavailable';
+      if (hint) hint.textContent = 'Type your answer in the box below';
+      btn.disabled = true;
+      break;
+    default: // idle
+      if (icon) icon.className = 'fa-solid fa-microphone text-base';
+      if (label) label.textContent = 'Tap to Answer';
+      if (hint) hint.textContent = 'Tap once to start speaking, tap again when done';
+      btn.disabled = false;
+      break;
+  }
+}
+
+function handlePTTTap() {
+  if (S.phase === 'done') return;
+
+  // If AI is speaking, interrupt it
+  if (S.isSpeaking) {
+    tts.stop();
+    // If we're in the listening phase (user's turn), start recording
+    if (S.phase === 'listening' && !S.isListening && !S.ending) {
+      _doStartRecording();
+    }
+    return;
+  }
+
+  // Toggle recording
+  if (S.isListening) {
+    // User is done speaking — submit immediately
+    setPTTState('processing');
+    stt.stop();
+  } else if (!S.ending && S.phase === 'listening') {
+    // Start recording
+    _doStartRecording();
+  }
+}
+
+
 
 // ===== TRANSCRIPT TOGGLE =====
 let transcriptVisible=true;
@@ -886,7 +1039,7 @@ async function startMedia(){
   }catch(ae){
     console.warn('Mic denied:',ae.message);
     $(`#vid-prev`).classList.add('hidden');$(`#rec-dot`).classList.add('hidden');$(`#rec-label`)?.classList.add('hidden');
-    $(`#inp-txt`).disabled=false;$(`#btn-send`).disabled=false;
+    setPTTState('disabled');
     $(`#d-st`).textContent='Mic unavailable — type your answers below';$(`#d-st`).style.color='#f59e0b';
     toast('Mic access denied — type your answers instead.','err');
     return false;
@@ -1529,6 +1682,7 @@ function setPhase(p){
       if(statusTxt){statusTxt.textContent='Speaking...';statusTxt.style.color='#e8a023'}
       if(ivDot)ivDot.style.background='#e8a023';
       if(ivStatus)ivStatus.textContent='Speaking...';
+      setPTTState('speaking');
       break;
     case'listening':
       if(avatar)avatar.classList.add('li');
@@ -1536,9 +1690,10 @@ function setPhase(p){
       if(icon)icon.className='fa-solid fa-microphone';
       if(vizCanvas)vizCanvas.classList.remove('hidden');
       drawVisualizer();
-      if(statusTxt){statusTxt.textContent='Listening — speak your answer freely';statusTxt.style.color='#10b981'}
+      if(statusTxt){statusTxt.textContent='Your turn — tap mic to answer';statusTxt.style.color='#10b981'}
       if(ivDot)ivDot.style.background='#10b981';
       if(ivStatus)ivStatus.textContent='Listening...';
+      setPTTState('idle');
       break;
     case'processing':
       if(avatar)avatar.classList.add('th');
@@ -1547,6 +1702,7 @@ function setPhase(p){
       if(statusTxt){statusTxt.textContent='Processing...';statusTxt.style.color='#888'}
       if(ivDot)ivDot.style.background='#6b7280';
       if(ivStatus)ivStatus.textContent='Thinking...';
+      setPTTState('processing');
       break;
     case'done':
       if(portrait){portrait.classList.remove('sp','li')}
@@ -1554,10 +1710,12 @@ function setPhase(p){
       if(statusTxt){statusTxt.textContent='Interview complete';statusTxt.style.color='#e8a023'}
       if(ivDot)ivDot.style.background='#10b981';
       if(ivStatus)ivStatus.textContent='Complete ✓';
+      setPTTState('disabled');
       break;
     default:
       if(icon)icon.className='fa-solid fa-microphone-lines';
       if(statusTxt){statusTxt.textContent='Preparing...';statusTxt.style.color='#888'}
+      setPTTState('disabled');
   }
 }
 function addMessage(role,text,interim){
@@ -1650,33 +1808,41 @@ async function beginInterview(){
   setPhase('speaking');
   const mediaOk=await startMedia();
   await tts.speak(greeting,vc);
-  // Only proceed to listening if TTS completed (not interrupted — if interrupted,
-  // the VAD already flipped phase to listening and will call startListening)
-  if(!S.isListening)await startListening();
+  // After greeting, go to listening phase so user can tap the mic button
+  if(!S.ending)await startListening();
 }
 
 async function startListening(){
   if(S.ending)return;
-  setPhase('listening');S.isListening=true;
+  setPhase('listening');S.isListening=false; // don't start recording until user taps PTT
   S.finalTxt='';S.interimTxt='';
+  S._whisperUpgrade=null;
+  // PTT in idle — user must tap to begin speaking
+  setPTTState('idle');
+}
+
+// Called by PTT tap when user wants to start speaking
+async function _doStartRecording(){
+  if(S.ending || S.isListening) return;
+  S.isListening=true;
+  setPTTState('listening');
 
   const ok=stt.start(
     (final,interim)=>{
       removeInterim();
-      // Show full accumulated transcript + current interim as live preview
       const display=(final+(interim?' '+interim:'')).trim();
       if(display)addMessage('student',display,!!interim);
-      // Update word count meter with full text so far
       updateWCMeter(final+(interim||''));
     },
     (text)=>processAnswer(text)
   );
 
   if(!ok){
-    // No mic/recorder — fall back to text input
-    $(`#inp-txt`).disabled=false;$(`#btn-send`).disabled=false;
-    $(`#d-st`).textContent='Voice unavailable — type your answer below';
-    $(`#d-st`).style.color='#f59e0b';
+    S.isListening=false;
+    setPTTState('disabled');
+    const d_st=$('#d-st');
+    if(d_st){d_st.textContent='Voice unavailable — type your answer below';d_st.style.color='#f59e0b'}
+    return;
   }
   // 90s absolute safety timeout
   S.maxT=setTimeout(()=>{if(S.isListening)stt.stop();},90000);
@@ -1688,9 +1854,7 @@ async function processAnswer(text){
   if(S.maxT){clearTimeout(S.maxT);S.maxT=null}
   stopVisualizer();
   hideWCMeter();
-  // Show brief "transcribing..." indicator while Whisper processes
-  const d_st=$('#d-st');
-  if(d_st){d_st.textContent='Transcribing...';d_st.style.color='#7c3aed'}
+  setPTTState('processing');
 
   // ── Fallback to typed input if voice gave nothing ──────────────────────
   if(!text||text.trim().length<3){
@@ -1699,9 +1863,9 @@ async function processAnswer(text){
     else{
       setPhase('speaking');
       const retry=pk([
-        "I didn't quite catch that — could you speak a bit more clearly, or type your answer below?",
-        "Sorry, I couldn't hear you well. Could you repeat that, or type it out?",
-        "I didn't hear a clear answer. Please try speaking again, or use the text box below."
+        "I didn't quite catch that — could you tap the mic and speak, or type your answer below?",
+        "Sorry, I couldn't hear you well. Please tap the microphone button and try again.",
+        "I didn't hear a clear answer. Tap the green mic button to speak, or type below."
       ]);
       addMessage('ai',retry,false);
       S.conversation.push({role:'ai',text:retry,interviewer:S.currentIV.name});
@@ -1735,7 +1899,8 @@ async function processAnswer(text){
   const lastSt=Array.from($$('.m-st')).pop();
   if(!lastSt||lastSt.querySelector('.mb')?.textContent!==text)addMessage('student',text,false);
   S.conversation.push({role:'student',text});
-  $(`#inp-txt`).disabled=true;$(`#btn-send`).disabled=true;
+  // Clear the text input (don't disable — always available)
+  const inp=$('#inp-txt');if(inp)inp.value='';
   S.currentQ++;updateProgress();
 
   // ── REAL-TIME ANSWER ANALYSIS ──────────────────────────────────────────────
@@ -1812,7 +1977,7 @@ async function processAnswer(text){
   addMessage('ai',question,false);
   setPhase('speaking');
   await tts.speak(question,getVoiceCfg());
-  if(!S.isListening)await startListening();
+  if(!S.ending)await startListening();
 }
 
 async function endInterview(){
@@ -2245,10 +2410,26 @@ function initEvents(){
   $(`#inp-srv`)?.addEventListener('blur',()=>{const v=$('#inp-srv').value.trim();if(v)localStorage.setItem('ns_api_url',v);apiHealth()});
   // Finish/End button — routes through confirmLeave
   $(`#btn-end`).addEventListener('click',()=>confirmLeave());
-  // Text input fallback
-  function sendTyped(){const t=$('#inp-txt')?.value.trim();if(!t)return;S.isListening=false;processAnswer(t)}
+  // Text input — always available, submits answer when user types
+  function sendTyped(){const t=$('#inp-txt')?.value.trim();if(!t)return;
+    // If currently listening, cancel voice first (don't fire processAnswer from stt)
+    if(S.isListening){
+      S.isListening=false; // prevent stt.stop() from calling processAnswer again
+      if(stt.vadInterval){clearInterval(stt.vadInterval);stt.vadInterval=null}
+      try{if(stt.rec)stt.rec.stop()}catch(e){}
+      if(stt.recorder&&stt.recorder.state!=='inactive'){try{stt.recorder.stop()}catch(e){}}
+      clearSilenceTimer();
+      if(S.maxT){clearTimeout(S.maxT);S.maxT=null}
+      stopVisualizer();hideWCMeter();
+    }
+    const inp=$('#inp-txt');if(inp)inp.value='';
+    if(!S.ending&&S.phase!=='done')processAnswer(t);
+  }
   $(`#btn-send`).addEventListener('click',sendTyped);
   $(`#inp-txt`).addEventListener('keydown',e=>{if(e.key==='Enter')sendTyped()});
+  // Push-to-talk mic button
+  const pttBtn=$('#btn-ptt');
+  if(pttBtn)pttBtn.addEventListener('click',handlePTTTap);
   // Nav logout
   $(`#nav-logout`).addEventListener('click',handleLogout);
   // Warn before browser close during active interview
