@@ -1864,19 +1864,30 @@ async function init(){
   const today=new Date().toISOString().split('T')[0];const sd=$('#inp-sdate');if(sd)sd.min=today;
   apiHealth();
 
-  // Auth state — single source of truth with double-fire guard
+  // Always show login page first on every visit.
+  // User must actively sign in — no auto-login from stored sessions.
+  showScreen('auth');
+
+  // Sign out any existing session silently so the page always starts fresh
+  const{data:{session:existingSession}}=await sb.auth.getSession();
+  if(existingSession){
+    await sb.auth.signOut();
+  }
+
+  // Auth state handler — only triggers after user explicitly logs in on this visit
   let _authHandled=false;
   sb.auth.onAuthStateChange(async(event,session)=>{
     try{
       if(event==='PASSWORD_RECOVERY'){showPasswordResetUI();return;}
-      if((event==='SIGNED_IN'||event==='INITIAL_SESSION')&&session){
+      if(event==='SIGNED_IN'&&session){
+        // Only navigate away from auth screen when user actively signs in
         if(_authHandled&&S.screen!=='auth')return;
         _authHandled=true;
         S.user=session.user;
         await loadProfile(session.user);
-        showScreen(S.profile?.role==='admin'?'admin':'dash'); // show screen immediately
+        showScreen(S.profile?.role==='admin'?'admin':'dash');
         if(S.profile?.role==='admin')loadAdmin();
-        else loadDashboard(); // load data after screen is visible
+        else loadDashboard();
       }else if(event==='SIGNED_OUT'||event==='USER_DELETED'){
         _authHandled=false;S.user=null;S.profile=null;showScreen('auth');
       }else if(event==='TOKEN_REFRESHED'&&session&&S.user){
@@ -1884,14 +1895,10 @@ async function init(){
       }
     }catch(err){
       console.error('Auth handler error:',err);
-      // Don't leave user stuck — show auth screen as safe fallback
       showScreen('auth');
       showAE('Something went wrong. Please try signing in again.');
     }
   });
-
-  const{data:{session}}=await sb.auth.getSession();
-  if(!session){showScreen('auth');_authHandled=false;}
 }
 
 function showPasswordResetUI(){
