@@ -15,6 +15,7 @@ const S={
   micStream:null,audioCtx:null,analyser:null,animId:null,
   silenceT:null,maxT:null,finalTxt:'',interimTxt:'',
   currentIV:null,teamIdx:0,
+  sessionPool:null,sessionPanel:null,
   mtStream:null,mtCtx:null,mtAn:null,mtAnim:null,
   sessions:[],completions:[],
   vidStream:null,mediaRecorder:null,vidChunks:[],isRecording:false,currentSessionId:null
@@ -23,8 +24,218 @@ const S={
 const FL={electrical:'Electrical & Electronic Engineering',mechanical:'Mechanical Engineering',mining:'Mining Engineering',civil:'Civil Engineering',computer:'Computer Engineering',chemical:'Chemical Engineering',petroleum:'Petroleum Engineering',aerospace:'Aerospace Engineering',agricultural:'Agricultural Engineering',biomedical:'Biomedical Engineering',geomatic:'Geomatic Engineering',materials:'Materials Engineering',health:'Health Sciences',business:'Business & Management',safety:'Fire Safety & Disaster Management',other:'General Studies'};
 const FK={electrical:['circuit','voltage','current','power','transformer','motor','generator','pcb','plc','relay','wiring','solar','inverter','grid','substation','earthing','switchgear'],mechanical:['cad','thermodynamics','fluid','machine','design','manufacturing','welding','lathe','milling','turbine','pump','bearing','gear','stress','strain','fatigue'],mining:['excavation','drilling','blasting','ore','mineral','tailings','ventilation','shaft','slope','geology','rock','gold','underground','surface','survey'],civil:['concrete','steel','structure','foundation','survey','highway','drainage','soil','beam','column','slab','load','reinforcement','construction','site'],computer:['programming','software','hardware','microcontroller','embedded','algorithm','database','network','python','java','c++','iot','sensor','firmware','linux','arduino'],chemical:['reaction','process','distillation','heat transfer','mass transfer','piping','reactor','catalyst','polymer','fluid flow','thermodynamics','separation','plant','safety'],petroleum:['reservoir','drilling','production','refining','crude','well','pipeline','exploration','formation','gas','oil','upstream','downstream'],aerospace:['aerodynamics','propulsion','structure','flight','aircraft','engine','turbine','lift','drag','composites','avionics','simulation'],agricultural:['irrigation','soil','crop','machinery','processing','farm','tractor','harvest','post-harvest','drainage','greenhouse','yield'],biomedical:['medical','device','implant','biomaterial','prosthetic','diagnostic','tissue','clinical','sterilization','regulatory','signal','imaging'],geomatic:['gis','survey','gps','remote sensing','mapping','cartography','geodesy','photogrammetry','lidar','spatial','coordinate'],materials:['metallurgy','composite','polymer','ceramic','corrosion','heat treatment','alloy','microstructure','testing','characterization']};
 
-const SP={male:{name:'Mr. Osei',gender:'male',pitch:0.85,rate:0.90,role:'Senior Engineer',focus:null,color:'#e8a023'},female:{name:'Ms. Amoako',gender:'female',pitch:1.12,rate:0.94,role:'HR Manager',focus:null,color:'#e8a023'}};
-const TM=[{name:'Ama Darko',role:'HR Coordinator',focus:'behavioral',color:'#3b82f6',pitch:1.10,rate:0.95,gender:'female',intro:"Good day. I'm Ama Darko, HR Coordinator. I'll be asking you about your background and teamwork."},{name:'Mr. Osei',role:'Technical Lead',focus:'technical',color:'#e8a023',pitch:0.84,rate:0.89,gender:'male',intro:"I'm Mr. Osei, Technical Lead. I'll be assessing your technical knowledge and problem-solving."},{name:'Dr. Mensah',role:'Project Manager',focus:'cv_project',color:'#8b5cf6',pitch:0.95,rate:0.92,gender:'male',intro:"I'm Dr. Mensah. I'll focus on your projects, experience, and how you apply your knowledge."},{name:'Eng. Boateng',role:'Senior Engineer',focus:'scenario',color:'#22c55e',pitch:0.88,rate:0.87,gender:'male',intro:"I'm Engineer Boateng. I'll present you with real engineering scenarios to assess your judgement."}];
+// ===== INTERVIEWER NAME ARCHIVE — 30 Ghanaian names, reused across all fields =====
+// Each entry: { prefix, last, gender, pitch, rate }
+// pitch/rate give each person a slightly distinct voice fingerprint
+const NAME_POOL = {
+  male: [
+    {prefix:'Eng.',  last:'Asante',      pitch:.85, rate:.90},
+    {prefix:'Dr.',   last:'Mensah',      pitch:.92, rate:.88},
+    {prefix:'Mr.',   last:'Osei',        pitch:.84, rate:.89},
+    {prefix:'Eng.',  last:'Boateng',     pitch:.88, rate:.87},
+    {prefix:'Dr.',   last:'Frimpong',    pitch:.82, rate:.88},
+    {prefix:'Mr.',   last:'Appiah',      pitch:.88, rate:.90},
+    {prefix:'Eng.',  last:'Owusu',       pitch:.86, rate:.91},
+    {prefix:'Dr.',   last:'Darko',       pitch:.90, rate:.91},
+    {prefix:'Mr.',   last:'Adjei',       pitch:.85, rate:.89},
+    {prefix:'Eng.',  last:'Agyei',       pitch:.84, rate:.88},
+    {prefix:'Dr.',   last:'Baffour',     pitch:.90, rate:.90},
+    {prefix:'Mr.',   last:'Quaye',       pitch:.92, rate:.91},
+    {prefix:'Eng.',  last:'Peprah',      pitch:.88, rate:.91},
+    {prefix:'Dr.',   last:'Kumi',        pitch:.87, rate:.90},
+    {prefix:'Mr.',   last:'Ofori',       pitch:.88, rate:.90},
+    {prefix:'Eng.',  last:'Otibu',       pitch:.86, rate:.90},
+    {prefix:'Dr.',   last:'Donkor',      pitch:.90, rate:.89},
+    {prefix:'Mr.',   last:'Ntim',        pitch:.92, rate:.91},
+    {prefix:'Eng.',  last:'Amponsah',    pitch:.88, rate:.91},
+    {prefix:'Dr.',   last:'Antwi',       pitch:.88, rate:.91},
+    {prefix:'Mr.',   last:'Bediako',     pitch:.88, rate:.89},
+    {prefix:'Eng.',  last:'Asare',       pitch:.88, rate:.92},
+    {prefix:'Dr.',   last:'Tawiah',      pitch:.87, rate:.90},
+    {prefix:'Mr.',   last:'Acheampong',  pitch:.86, rate:.89},
+    {prefix:'Eng.',  last:'Boadu',       pitch:.86, rate:.90},
+    {prefix:'Dr.',   last:'Kusi',        pitch:.86, rate:.90},
+    {prefix:'Mr.',   last:'Sarpong',     pitch:.89, rate:.91},
+    {prefix:'Eng.',  last:'Adusei',      pitch:.86, rate:.90},
+    {prefix:'Dr.',   last:'Gyasi',       pitch:.87, rate:.88},
+    {prefix:'Mr.',   last:'Bonsu',       pitch:.90, rate:.89},
+  ],
+  female: [
+    {prefix:'Dr.',   last:'Amoah',       pitch:1.08, rate:.93},
+    {prefix:'Mrs.',  last:'Boateng',     pitch:1.10, rate:.94},
+    {prefix:'Ms.',   last:'Tetteh',      pitch:1.12, rate:.95},
+    {prefix:'Dr.',   last:'Asante',      pitch:1.08, rate:.93},
+    {prefix:'Mrs.',  last:'Ansah',       pitch:1.10, rate:.94},
+    {prefix:'Ms.',   last:'Acheampong',  pitch:1.10, rate:.95},
+    {prefix:'Dr.',   last:'Asamoah',     pitch:1.10, rate:.95},
+    {prefix:'Mrs.',  last:'Sarpong',     pitch:1.10, rate:.94},
+    {prefix:'Ms.',   last:'Fofie',       pitch:1.08, rate:.93},
+    {prefix:'Dr.',   last:'Bonsu',       pitch:1.10, rate:.94},
+    {prefix:'Mrs.',  last:'Owusu',       pitch:1.10, rate:.94},
+    {prefix:'Ms.',   last:'Amoako',      pitch:1.12, rate:.94},
+    {prefix:'Dr.',   last:'Forson',      pitch:1.10, rate:.94},
+    {prefix:'Mrs.',  last:'Asante',      pitch:1.10, rate:.94},
+    {prefix:'Ms.',   last:'Darko',       pitch:1.10, rate:.95},
+    {prefix:'Dr.',   last:'Mensah',      pitch:1.09, rate:.93},
+    {prefix:'Mrs.',  last:'Adusei',      pitch:1.10, rate:.94},
+    {prefix:'Ms.',   last:'Adjei',       pitch:1.11, rate:.95},
+    {prefix:'Dr.',   last:'Peprah',      pitch:1.08, rate:.92},
+    {prefix:'Mrs.',  last:'Amponsah',    pitch:1.10, rate:.94},
+  ],
+};
+
+// Role assignments per interview focus type
+const FOCUS_ROLES = {
+  behavioral: ['HR Coordinator','HR Manager','People & Culture Lead','Talent Acquisition Manager','HR Business Partner'],
+  technical:  ['Technical Lead','Senior Engineer','Principal Engineer','R&D Engineer','Technical Director'],
+  cv_project: ['Project Manager','Operations Manager','Programme Officer','Senior Consultant','Director of Projects'],
+  scenario:   ['Senior Engineer','Chief Engineer','Field Operations Manager','Technical Assessor','Engineering Lead'],
+};
+const COLORS = ['#e8a023','#06b6d4','#8b5cf6','#10b981','#3b82f6','#f59e0b','#22c55e','#ec4899'];
+
+// Field-specific role labels (used when building non-panel single interviewers)
+const FIELD_ROLES = {
+  electrical:  ['Electrical Engineer','Power Systems Engineer','Control Engineer','Senior Electrical Engineer'],
+  mechanical:  ['Mechanical Engineer','Plant Manager','R&D Engineer','Manufacturing Engineer'],
+  mining:      ['Mine Engineer','Geology Lead','Safety Officer','Mine Planning Engineer'],
+  civil:       ['Civil Engineer','Structural Engineer','Project Manager','Site Engineer'],
+  computer:    ['Software Engineer','Tech Lead','Systems Architect','Embedded Engineer'],
+  chemical:    ['Process Engineer','Chemical Engineer','Plant Supervisor','Quality Engineer'],
+  petroleum:   ['Petroleum Engineer','Reservoir Engineer','Upstream Manager','Drilling Engineer'],
+  agricultural:['Agricultural Engineer','Agric. Consultant','Field Manager','Irrigation Specialist'],
+  biomedical:  ['Biomedical Engineer','Clinical Engineer','Device Specialist','Regulatory Affairs Lead'],
+  geomatic:    ['Geomatics Engineer','Survey Consultant','GIS Specialist','Cartographer'],
+  materials:   ['Materials Engineer','Metallurgist','QA Manager','Failure Analysis Engineer'],
+  health:      ['Clinical Supervisor','Senior Nurse','Medical Laboratory Scientist','Public Health Officer'],
+  business:    ['Business Manager','HR Director','Finance Lead','Strategy Consultant'],
+  safety:      ['Safety Officer','HSE Manager','Emergency Coordinator','Risk Assessment Lead'],
+};
+
+// Emojis pool — randomly assigned, skin tones varied
+const EMOJIS_MALE   = ['👨🏿‍💼','👨🏾‍💼','👨🏽‍💼','🧑🏿‍💼','🧑🏾‍💼','👷🏿‍♂️','👷🏾‍♂️','👨🏿‍🔬','👨🏾‍🔬','👨🏿‍🔧','👨🏿‍💻','👨🏾‍💻'];
+const EMOJIS_FEMALE = ['👩🏿‍💼','👩🏾‍💼','👩🏽‍💼','👩🏿‍🔬','👩🏾‍🔬','👩🏿‍⚕️','👩🏾‍⚕️','👩🏿‍💻','👩🏾‍💻','👩🏿‍🌾'];
+
+// Build a single interviewer object from name pool
+function buildIV(nameEntry, role, color, emoji) {
+  const name = nameEntry.prefix + ' ' + nameEntry.last;
+  return {
+    name,
+    role: role || 'Senior Professional',
+    gender: nameEntry.prefix === 'Mrs.' || nameEntry.prefix === 'Ms.' || nameEntry.prefix === 'Dr.' && NAME_POOL.female.some(f => f.last === nameEntry.last) ? 'female' : 'male',
+    pitch: nameEntry.pitch,
+    rate: nameEntry.rate,
+    color: color || pk(COLORS),
+    emoji: emoji || (nameEntry.prefix === 'Mrs.' || nameEntry.prefix === 'Ms.' ? pk(EMOJIS_FEMALE) : pk(EMOJIS_MALE)),
+  };
+}
+
+// Properly determine gender from name pool lookup
+function resolveGender(nameEntry) {
+  if (NAME_POOL.female.some(f => f.last === nameEntry.last && f.prefix === nameEntry.prefix)) return 'female';
+  return 'male';
+}
+
+// Build a shuffled panel of N interviewers for a field, each session different
+function buildSessionPanel(field, count = 4) {
+  const fieldRoles = FIELD_ROLES[field] || FIELD_ROLES.electrical;
+  // Shuffle name pool (mix male/female, 60/40 split roughly)
+  const malePool  = [...NAME_POOL.male].sort(() => Math.random() - 0.5);
+  const femalePool = [...NAME_POOL.female].sort(() => Math.random() - 0.5);
+  // Interleave: pick alternating from each pool
+  const mixed = [];
+  for (let i = 0; i < Math.max(malePool.length, femalePool.length); i++) {
+    if (i < malePool.length)   mixed.push({...malePool[i],   _g:'male'});
+    if (i < femalePool.length) mixed.push({...femalePool[i], _g:'female'});
+  }
+  // Focus roles for panel mode
+  const focusKeys = ['behavioral','technical','cv_project','scenario'];
+  const colorPick = [...COLORS].sort(() => Math.random() - 0.5);
+  const panel = [];
+  for (let i = 0; i < count; i++) {
+    const nameEntry = mixed[i % mixed.length];
+    const gender = nameEntry._g;
+    const focus  = focusKeys[i] || 'technical';
+    const role   = pk(FOCUS_ROLES[focus] || FOCUS_ROLES.technical);
+    const color  = colorPick[i % colorPick.length];
+    const emoji  = pk(gender === 'female' ? EMOJIS_FEMALE : EMOJIS_MALE);
+    const name   = nameEntry.prefix + ' ' + nameEntry.last;
+    panel.push({
+      name, role, gender,
+      pitch: nameEntry.pitch, rate: nameEntry.rate,
+      color, emoji, focus,
+      intro: buildIntro(name, role, focus, field),
+    });
+  }
+  return panel;
+}
+
+// Build a pool of single interviewers for non-panel mode (6 per field)
+function buildFieldPool(field, count = 6) {
+  const roles = FIELD_ROLES[field] || FIELD_ROLES.electrical;
+  // Always include 2 female, 4 male for balance
+  const femalePool = [...NAME_POOL.female].sort(() => Math.random() - 0.5).slice(0, 2);
+  const malePool   = [...NAME_POOL.male].sort(() => Math.random() - 0.5).slice(0, count - 2);
+  const all = [...malePool.map(n=>({...n,_g:'male'})), ...femalePool.map(n=>({...n,_g:'female'}))];
+  const colorPick  = [...COLORS].sort(() => Math.random() - 0.5);
+  return all.map((nameEntry, i) => {
+    const gender = nameEntry._g;
+    const role   = roles[i % roles.length];
+    const color  = colorPick[i % colorPick.length];
+    const emoji  = pk(gender === 'female' ? EMOJIS_FEMALE : EMOJIS_MALE);
+    return {
+      name: nameEntry.prefix + ' ' + nameEntry.last,
+      role, gender,
+      pitch: nameEntry.pitch, rate: nameEntry.rate,
+      color, emoji,
+    };
+  });
+}
+
+function buildIntro(name, role, focus, field) {
+  const fieldLabel = FL[field] || field;
+  const intros = {
+    behavioral: [
+      `Good day. I'm ${name}, ${role}. I'll be exploring your background, teamwork, and people skills today.`,
+      `Hello. ${name} here, ${role}. My questions will focus on how you've worked with others and handled challenges.`,
+      `Welcome. I'm ${name}. As ${role}, I'll be looking at your soft skills, attitude, and how you fit into a team.`,
+    ],
+    technical: [
+      `I'm ${name}, ${role}. I'll be probing your technical knowledge in ${fieldLabel} — expect specific, practical questions.`,
+      `Good day. ${name}, ${role}. I want to understand how deeply you know your field and how you apply that knowledge.`,
+      `Hello. I'm ${name}. In my role as ${role}, I'll be testing your core ${fieldLabel} competencies today.`,
+    ],
+    cv_project: [
+      `I'm ${name}, ${role}. I'd like to dig into the projects and experience on your CV and understand your real contributions.`,
+      `Good day. ${name} here, ${role}. We'll be going through your academic work and any practical experience in detail.`,
+      `Welcome. I'm ${name}. As ${role}, I'm most interested in what you've built, designed, or delivered.`,
+    ],
+    scenario: [
+      `I'm ${name}, ${role}. I'll be presenting you with realistic ${fieldLabel} scenarios to see how you think through problems.`,
+      `Good day. ${name} here. As ${role}, I assess judgement and decision-making — expect field scenarios, not textbook questions.`,
+      `Hello. I'm ${name}, ${role}. I'll put some engineering challenges to you and see how you'd handle them on the job.`,
+    ],
+  };
+  const pool = intros[focus] || intros.technical;
+  return pk(pool);
+}
+
+// ── Session-level panel cache — rebuilt every time beginInterview() is called ──
+// S.sessionPanel  = array of 4 panel members (team mode)
+// S.sessionPool   = array of 6 single interviewers (single/male/female/random mode)
+// Both are randomised fresh every session so no two interviews feel the same.
+
+// SP kept for backward compat but values now come from pool at session start
+const SP = {
+  male:   {name:'Mr. Osei',  gender:'male',   pitch:0.85, rate:0.90, role:'Senior Engineer', focus:null, color:'#e8a023'},
+  female: {name:'Ms. Amoako',gender:'female', pitch:1.12, rate:0.94, role:'HR Manager',       focus:null, color:'#e8a023'},
+};
+// TM kept as fallback — overwritten per-session
+let TM = [
+  {name:'Ama Darko',   role:'HR Coordinator',  focus:'behavioral', color:'#3b82f6', pitch:1.10, rate:0.95, gender:'female', intro:"Good day. I'm Ama Darko, HR Coordinator. I'll be asking you about your background and teamwork."},
+  {name:'Mr. Osei',    role:'Technical Lead',   focus:'technical',  color:'#e8a023', pitch:0.84, rate:0.89, gender:'male',   intro:"I'm Mr. Osei, Technical Lead. I'll be assessing your technical knowledge and problem-solving."},
+  {name:'Dr. Mensah',  role:'Project Manager',  focus:'cv_project', color:'#8b5cf6', pitch:0.95, rate:0.92, gender:'male',   intro:"I'm Dr. Mensah. I'll focus on your projects, experience, and how you apply your knowledge."},
+  {name:'Eng. Boateng',role:'Senior Engineer',  focus:'scenario',   color:'#22c55e', pitch:0.88, rate:0.87, gender:'male',   intro:"I'm Engineer Boateng. I'll present you with real engineering scenarios to assess your judgement."},
+];
 
 const FU={project:["Walk me through the technical approach for that project.","What was the most challenging aspect of that project?","What specific role did you play in the team?","If you could redo one aspect of that project, what would it be?","What tools and methods did you use, and why did you choose them?"],internship:["What specific technical tasks were you responsible for during that attachment?","How did the practical experience connect with what you learned in the classroom?","Can you describe a specific moment where you applied theory to a real problem?","What feedback did your supervisor give you about your performance?"],teamwork:["Can you give me a specific example of how you resolved a disagreement in that team?","How do you handle a team member who is not contributing their fair share?","In your experience, what is the most critical factor for effective teamwork?"],leadership:["How would you describe your leadership style?","Tell me about a time you had to motivate a group that was struggling.","What do you think is the difference between a good manager and a good leader?"],challenge:["Looking back, what would you do differently?","How did you manage the pressure during that period?","What did that experience teach you about yourself?"],skills:["Which of your technical skills do you consider your strongest, and why?","How have you continued to develop your skills outside of formal coursework?","Are there any specific skills you are actively working to improve right now?"],motivation:["What specifically drew you to this field of engineering?","Where do you see yourself professionally in five years?","What do you hope to contribute during your national service?"],academic:["Which courses from your program do you think will be most relevant in industry, and why?","Tell me about your final year project or dissertation.","How did you approach a particularly difficult course or subject?"]};
 
@@ -583,87 +794,15 @@ function toggleVideoSize(){
 }
 
 // ===== INTERVIEWER PORTRAITS =====
-// Field → array of {emoji, name, role, gender, pitch, rate, color}
-const IV_PROFILES={
-  electrical:[
-    {emoji:'👨🏿‍🔧',name:'Eng. Asante',role:'Electrical Engineer',gender:'male',pitch:.85,rate:.90,color:'#e8a023'},
-    {emoji:'👩🏿‍💼',name:'Mrs. Boateng',role:'HR Manager',gender:'female',pitch:1.1,rate:.94,color:'#06b6d4'},
-    {emoji:'👨🏾‍💼',name:'Dr. Mensah',role:'Technical Director',gender:'male',pitch:.92,rate:.88,color:'#8b5cf6'},
-  ],
-  mechanical:[
-    {emoji:'👷🏿‍♂️',name:'Eng. Owusu',role:'Senior Mech. Engineer',gender:'male',pitch:.84,rate:.89,color:'#e8a023'},
-    {emoji:'👩🏾‍🔬',name:'Dr. Amoah',role:'R&D Engineer',gender:'female',pitch:1.08,rate:.93,color:'#10b981'},
-    {emoji:'🧑🏿‍🏭',name:'Mr. Darko',role:'Plant Manager',gender:'male',pitch:.90,rate:.91,color:'#8b5cf6'},
-  ],
-  mining:[
-    {emoji:'⛑️',name:'Eng. Frimpong',role:'Mine Engineer',gender:'male',pitch:.82,rate:.88,color:'#f59e0b'},
-    {emoji:'👩🏿‍💼',name:'Ms. Acheampong',role:'Safety Officer',gender:'female',pitch:1.1,rate:.95,color:'#10b981'},
-    {emoji:'👨🏾‍💼',name:'Mr. Appiah',role:'Geology Lead',gender:'male',pitch:.88,rate:.90,color:'#06b6d4'},
-  ],
-  civil:[
-    {emoji:'🏗️',name:'Eng. Boadu',role:'Civil Engineer',gender:'male',pitch:.86,rate:.90,color:'#e8a023'},
-    {emoji:'👩🏾‍💼',name:'Mrs. Ansah',role:'Project Manager',gender:'female',pitch:1.1,rate:.94,color:'#8b5cf6'},
-    {emoji:'👨🏿‍💼',name:'Dr. Osei',role:'Structural Director',gender:'male',pitch:.90,rate:.88,color:'#06b6d4'},
-  ],
-  computer:[
-    {emoji:'👨🏿‍💻',name:'Eng. Asare',role:'Software Engineer',gender:'male',pitch:.88,rate:.92,color:'#06b6d4'},
-    {emoji:'👩🏾‍💻',name:'Ms. Tetteh',role:'Tech Lead',gender:'female',pitch:1.12,rate:.95,color:'#8b5cf6'},
-    {emoji:'🧑🏿‍💼',name:'Mr. Adjei',role:'CTO',gender:'male',pitch:.85,rate:.89,color:'#e8a023'},
-  ],
-  chemical:[
-    {emoji:'🧪',name:'Dr. Kumi',role:'Process Engineer',gender:'male',pitch:.87,rate:.90,color:'#10b981'},
-    {emoji:'👩🏿‍🔬',name:'Dr. Asante',role:'Chemical Engineer',gender:'female',pitch:1.08,rate:.93,color:'#06b6d4'},
-    {emoji:'👨🏾‍💼',name:'Mr. Quaye',role:'Plant Supervisor',gender:'male',pitch:.92,rate:.91,color:'#e8a023'},
-  ],
-  petroleum:[
-    {emoji:'🛢️',name:'Eng. Agyei',role:'Petroleum Engineer',gender:'male',pitch:.84,rate:.89,color:'#f59e0b'},
-    {emoji:'👩🏾‍💼',name:'Mrs. Asante',role:'Reservoir Engineer',gender:'female',pitch:1.10,rate:.94,color:'#e8a023'},
-    {emoji:'👨🏿‍💼',name:'Dr. Baffour',role:'Upstream Manager',gender:'male',pitch:.90,rate:.90,color:'#06b6d4'},
-  ],
-  agricultural:[
-    {emoji:'🌾',name:'Dr. Peprah',role:'Agricultural Engineer',gender:'male',pitch:.88,rate:.91,color:'#10b981'},
-    {emoji:'👩🏿‍🌾',name:'Mrs. Sarpong',role:'Agric. Consultant',gender:'female',pitch:1.1,rate:.94,color:'#84cc16'},
-    {emoji:'👨🏾‍💼',name:'Mr. Acheampong',role:'Field Manager',gender:'male',pitch:.86,rate:.89,color:'#e8a023'},
-  ],
-  biomedical:[
-    {emoji:'🩺',name:'Dr. Mensah',role:'Biomedical Engineer',gender:'male',pitch:.90,rate:.91,color:'#10b981'},
-    {emoji:'👩🏿‍⚕️',name:'Dr. Asamoah',role:'Clinical Engineer',gender:'female',pitch:1.10,rate:.95,color:'#06b6d4'},
-    {emoji:'🧑🏾‍💼',name:'Mr. Ofori',role:'Device Specialist',gender:'male',pitch:.88,rate:.90,color:'#8b5cf6'},
-  ],
-  geomatic:[
-    {emoji:'🗺️',name:'Eng. Otibu',role:'Geomatics Engineer',gender:'male',pitch:.86,rate:.90,color:'#e8a023'},
-    {emoji:'👩🏿‍💼',name:'Ms. Fofie',role:'Survey Consultant',gender:'female',pitch:1.08,rate:.93,color:'#06b6d4'},
-    {emoji:'👨🏾‍💼',name:'Dr. Donkor',role:'GIS Specialist',gender:'male',pitch:.90,rate:.89,color:'#8b5cf6'},
-  ],
-  materials:[
-    {emoji:'⚗️',name:'Dr. Tawiah',role:'Materials Engineer',gender:'male',pitch:.87,rate:.90,color:'#e8a023'},
-    {emoji:'👩🏾‍🔬',name:'Dr. Bonsu',role:'Metallurgist',gender:'female',pitch:1.10,rate:.94,color:'#06b6d4'},
-    {emoji:'👨🏿‍💼',name:'Mr. Ntim',role:'QA Manager',gender:'male',pitch:.92,rate:.91,color:'#8b5cf6'},
-  ],
-  health:[
-    {emoji:'👨🏿‍⚕️',name:'Dr. Antwi',role:'Clinical Supervisor',gender:'male',pitch:.88,rate:.91,color:'#10b981'},
-    {emoji:'👩🏿‍⚕️',name:'Dr. Forson',role:'Senior Nurse',gender:'female',pitch:1.1,rate:.94,color:'#06b6d4'},
-    {emoji:'🧑🏾‍💼',name:'Mr. Asante',role:'HR Officer',gender:'male',pitch:.90,rate:.90,color:'#8b5cf6'},
-  ],
-  business:[
-    {emoji:'👔',name:'Mr. Amponsah',role:'Business Manager',gender:'male',pitch:.88,rate:.91,color:'#e8a023'},
-    {emoji:'👩🏾‍💼',name:'Mrs. Owusu',role:'HR Director',gender:'female',pitch:1.10,rate:.94,color:'#8b5cf6'},
-    {emoji:'🧑🏿‍💼',name:'Dr. Kusi',role:'Finance Lead',gender:'male',pitch:.86,rate:.90,color:'#06b6d4'},
-  ],
-  safety:[
-    {emoji:'🦺',name:'Eng. Osei',role:'Safety Officer',gender:'male',pitch:.86,rate:.90,color:'#f59e0b'},
-    {emoji:'👩🏿‍💼',name:'Mrs. Adusei',role:'HSE Manager',gender:'female',pitch:1.10,rate:.94,color:'#e8a023'},
-    {emoji:'👨🏾‍🚒',name:'Mr. Bediako',role:'Emergency Coordinator',gender:'male',pitch:.88,rate:.89,color:'#ef4444'},
-  ],
-};
-// Default fallback
-const IV_DEFAULT=[
-  {emoji:'🧑🏿‍💼',name:'Mr. Osei',role:'Senior Interviewer',gender:'male',pitch:.85,rate:.90,color:'#e8a023'},
-  {emoji:'👩🏿‍💼',name:'Ms. Amoako',role:'HR Manager',gender:'female',pitch:1.12,rate:.94,color:'#06b6d4'},
-];
+// All pools are now built dynamically per session from NAME_POOL.
+// IV_PROFILES is replaced by buildFieldPool() called at session start.
+// S.sessionPool  = per-session pool of 6 single interviewers for the field
+// S.sessionPanel = per-session 4-member panel for team mode
 
-function getFieldInterviewers(field){
-  return IV_PROFILES[field]||IV_DEFAULT;
+function getFieldInterviewers(field) {
+  // Returns the session pool if already built, otherwise build a fresh one
+  if (S.sessionPool && S.sessionPool.length) return S.sessionPool;
+  return buildFieldPool(field, 6);
 }
 // Pick a random interviewer for this session (persists for the session)
 function pickSessionInterviewer(field){
@@ -1456,6 +1595,7 @@ async function startInt(){
   S.hasInternship=S.profile?.has_internship||false;
   await apiHealth();
   S.conversation=[];S.currentQ=0;S.teamIdx=0;S.ending=false;S.currentSessionId=null;
+  S.sessionPool=null;S.sessionPanel=null; // will be rebuilt in beginInterview
   S.totalQ=parseInt($$('#qcount-sel button[data-sel="1"]')[0]?.dataset.q||'12');
   S.questionArc=buildArc(S.totalQ);
   $(`#transcript`).innerHTML='';updateProgress();showScreen('interview');
@@ -1482,9 +1622,14 @@ async function startInt(){
 }
 
 async function beginInterview(){
+  // ── Build fresh session pools — every interview gets different people ──
+  S.sessionPool  = buildFieldPool(S.field, 6);
+  S.sessionPanel = buildSessionPanel(S.field, 4);
+  TM = S.sessionPanel; // panel mode uses this session's team
+
   // Set up portrait for single interviewer modes
-  const ivPool=getFieldInterviewers(S.field);
-  const portrait=ivPool[Math.floor(Math.random()*ivPool.length)];
+  const ivPool = S.sessionPool;
+  const portrait = ivPool[Math.floor(Math.random() * ivPool.length)];
   if(S.mode!=='team'&&portrait){
     S.currentIV={...S.currentIV,name:portrait.name,role:portrait.role,gender:portrait.gender,pitch:portrait.pitch,rate:portrait.rate,color:portrait.color};
     updatePortrait(portrait);
