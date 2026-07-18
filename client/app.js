@@ -317,15 +317,22 @@ const stt={rec:null,ok:false,
   start(onResult,onEnd){
     if(!this.ok)return false;
     S.finalTxt='';S.interimTxt='';
+    let fullFinal=''; // accumulates ALL final results across multiple recognitions
     this.rec.onresult=e=>{
-      let final='',interim='';
-      for(let i=0;i<e.results.length;i++){
+      let sessionFinal='',interim='';
+      for(let i=e.resultIndex;i<e.results.length;i++){
         const t=e.results[i][0].transcript;
-        if(e.results[i].isFinal)final+=t; else interim+=t;
+        if(e.results[i].isFinal){sessionFinal+=t}
+        else{interim+=t}
       }
-      if(final){S.finalTxt=final;S.interimTxt=''}
-      else if(interim){S.interimTxt=interim}
-      onResult(final,interim);
+      if(sessionFinal){
+        fullFinal+=' '+sessionFinal;
+        S.finalTxt=fullFinal.trim();
+        S.interimTxt='';
+      }else if(interim){
+        S.interimTxt=interim;
+      }
+      onResult(S.finalTxt,interim);
       resetSilenceTimer();
     };
     this.rec.onend=()=>{
@@ -339,8 +346,8 @@ const stt={rec:null,ok:false,
 };
 function resetSilenceTimer(){
   clearSilenceTimer();
-  // 6 seconds of silence triggers auto-submit — gives enough time to think
-  S.silenceT=setTimeout(()=>{if(S.isListening)stt.stop()},6000);
+  // 4 seconds silence → auto-submit (down from 6s for faster feel)
+  S.silenceT=setTimeout(()=>{if(S.isListening)stt.stop()},4000);
 }
 function clearSilenceTimer(){if(S.silenceT){clearTimeout(S.silenceT);S.silenceT=null}}
 
@@ -348,19 +355,141 @@ function clearSilenceTimer(){if(S.silenceT){clearTimeout(S.silenceT);S.silenceT=
 let transcriptVisible=true;
 function toggleTranscript(){
   transcriptVisible=!transcriptVisible;
-  const wrap=$('#ta-wrap'),eye=$('#transcript-eye'),lbl=$('#transcript-label'),dot=$('#transcript-dot');
+  const wrap=$('#ta-wrap');
+  const eye=$('#transcript-eye');
+  const lbl=$('#transcript-label');
+  const dot=$('#transcript-dot');
+  if(!wrap)return;
   if(transcriptVisible){
-    wrap.classList.remove('collapsed');
-    eye.className='fa-solid fa-eye text-[9px]';lbl.textContent='Hide';
-    dot.style.background='#7c3aed';
+    wrap.style.display='';
+    wrap.style.maxHeight='38vh';
+    if(eye)eye.className='fa-solid fa-eye text-[9px]';
+    if(lbl)lbl.textContent='Hide';
+    if(dot)dot.style.background='#7c3aed';
   }else{
-    wrap.classList.add('collapsed');
-    eye.className='fa-solid fa-eye-slash text-[9px]';lbl.textContent='Show';
-    dot.style.background='#6b7280';
+    wrap.style.display='none';
+    if(eye)eye.className='fa-solid fa-eye-slash text-[9px]';
+    if(lbl)lbl.textContent='Show';
+    if(dot)dot.style.background='#6b7280';
   }
 }
 
-// ===== CAMERA TOGGLE =====
+// ===== VIDEO SIZE TOGGLE =====
+let videoExpanded=false;
+function toggleVideoSize(){
+  videoExpanded=!videoExpanded;
+  const vp=$('#vid-prev'),icon=$('#vid-expand-icon');
+  if(!vp)return;
+  if(videoExpanded){
+    vp.classList.add('expanded');
+    if(icon)icon.className='fa-solid fa-compress text-[9px]';
+  }else{
+    vp.classList.remove('expanded');
+    if(icon)icon.className='fa-solid fa-expand text-[9px]';
+  }
+}
+
+// ===== INTERVIEWER PORTRAITS =====
+// Field → array of {emoji, name, role, gender, pitch, rate, color}
+const IV_PROFILES={
+  electrical:[
+    {emoji:'👨🏿‍🔧',name:'Eng. Asante',role:'Electrical Engineer',gender:'male',pitch:.85,rate:.90,color:'#e8a023'},
+    {emoji:'👩🏿‍💼',name:'Mrs. Boateng',role:'HR Manager',gender:'female',pitch:1.1,rate:.94,color:'#06b6d4'},
+    {emoji:'👨🏾‍💼',name:'Dr. Mensah',role:'Technical Director',gender:'male',pitch:.92,rate:.88,color:'#8b5cf6'},
+  ],
+  mechanical:[
+    {emoji:'👷🏿‍♂️',name:'Eng. Owusu',role:'Senior Mech. Engineer',gender:'male',pitch:.84,rate:.89,color:'#e8a023'},
+    {emoji:'👩🏾‍🔬',name:'Dr. Amoah',role:'R&D Engineer',gender:'female',pitch:1.08,rate:.93,color:'#10b981'},
+    {emoji:'🧑🏿‍🏭',name:'Mr. Darko',role:'Plant Manager',gender:'male',pitch:.90,rate:.91,color:'#8b5cf6'},
+  ],
+  mining:[
+    {emoji:'⛑️',name:'Eng. Frimpong',role:'Mine Engineer',gender:'male',pitch:.82,rate:.88,color:'#f59e0b'},
+    {emoji:'👩🏿‍💼',name:'Ms. Acheampong',role:'Safety Officer',gender:'female',pitch:1.1,rate:.95,color:'#10b981'},
+    {emoji:'👨🏾‍💼',name:'Mr. Appiah',role:'Geology Lead',gender:'male',pitch:.88,rate:.90,color:'#06b6d4'},
+  ],
+  civil:[
+    {emoji:'🏗️',name:'Eng. Boadu',role:'Civil Engineer',gender:'male',pitch:.86,rate:.90,color:'#e8a023'},
+    {emoji:'👩🏾‍💼',name:'Mrs. Ansah',role:'Project Manager',gender:'female',pitch:1.1,rate:.94,color:'#8b5cf6'},
+    {emoji:'👨🏿‍💼',name:'Dr. Osei',role:'Structural Director',gender:'male',pitch:.90,rate:.88,color:'#06b6d4'},
+  ],
+  computer:[
+    {emoji:'👨🏿‍💻',name:'Eng. Asare',role:'Software Engineer',gender:'male',pitch:.88,rate:.92,color:'#06b6d4'},
+    {emoji:'👩🏾‍💻',name:'Ms. Tetteh',role:'Tech Lead',gender:'female',pitch:1.12,rate:.95,color:'#8b5cf6'},
+    {emoji:'🧑🏿‍💼',name:'Mr. Adjei',role:'CTO',gender:'male',pitch:.85,rate:.89,color:'#e8a023'},
+  ],
+  chemical:[
+    {emoji:'🧪',name:'Dr. Kumi',role:'Process Engineer',gender:'male',pitch:.87,rate:.90,color:'#10b981'},
+    {emoji:'👩🏿‍🔬',name:'Dr. Asante',role:'Chemical Engineer',gender:'female',pitch:1.08,rate:.93,color:'#06b6d4'},
+    {emoji:'👨🏾‍💼',name:'Mr. Quaye',role:'Plant Supervisor',gender:'male',pitch:.92,rate:.91,color:'#e8a023'},
+  ],
+  petroleum:[
+    {emoji:'🛢️',name:'Eng. Agyei',role:'Petroleum Engineer',gender:'male',pitch:.84,rate:.89,color:'#f59e0b'},
+    {emoji:'👩🏾‍💼',name:'Mrs. Asante',role:'Reservoir Engineer',gender:'female',pitch:1.10,rate:.94,color:'#e8a023'},
+    {emoji:'👨🏿‍💼',name:'Dr. Baffour',role:'Upstream Manager',gender:'male',pitch:.90,rate:.90,color:'#06b6d4'},
+  ],
+  agricultural:[
+    {emoji:'🌾',name:'Dr. Peprah',role:'Agricultural Engineer',gender:'male',pitch:.88,rate:.91,color:'#10b981'},
+    {emoji:'👩🏿‍🌾',name:'Mrs. Sarpong',role:'Agric. Consultant',gender:'female',pitch:1.1,rate:.94,color:'#84cc16'},
+    {emoji:'👨🏾‍💼',name:'Mr. Acheampong',role:'Field Manager',gender:'male',pitch:.86,rate:.89,color:'#e8a023'},
+  ],
+  biomedical:[
+    {emoji:'🩺',name:'Dr. Mensah',role:'Biomedical Engineer',gender:'male',pitch:.90,rate:.91,color:'#10b981'},
+    {emoji:'👩🏿‍⚕️',name:'Dr. Asamoah',role:'Clinical Engineer',gender:'female',pitch:1.10,rate:.95,color:'#06b6d4'},
+    {emoji:'🧑🏾‍💼',name:'Mr. Ofori',role:'Device Specialist',gender:'male',pitch:.88,rate:.90,color:'#8b5cf6'},
+  ],
+  geomatic:[
+    {emoji:'🗺️',name:'Eng. Otibu',role:'Geomatics Engineer',gender:'male',pitch:.86,rate:.90,color:'#e8a023'},
+    {emoji:'👩🏿‍💼',name:'Ms. Fofie',role:'Survey Consultant',gender:'female',pitch:1.08,rate:.93,color:'#06b6d4'},
+    {emoji:'👨🏾‍💼',name:'Dr. Donkor',role:'GIS Specialist',gender:'male',pitch:.90,rate:.89,color:'#8b5cf6'},
+  ],
+  materials:[
+    {emoji:'⚗️',name:'Dr. Tawiah',role:'Materials Engineer',gender:'male',pitch:.87,rate:.90,color:'#e8a023'},
+    {emoji:'👩🏾‍🔬',name:'Dr. Bonsu',role:'Metallurgist',gender:'female',pitch:1.10,rate:.94,color:'#06b6d4'},
+    {emoji:'👨🏿‍💼',name:'Mr. Ntim',role:'QA Manager',gender:'male',pitch:.92,rate:.91,color:'#8b5cf6'},
+  ],
+  health:[
+    {emoji:'👨🏿‍⚕️',name:'Dr. Antwi',role:'Clinical Supervisor',gender:'male',pitch:.88,rate:.91,color:'#10b981'},
+    {emoji:'👩🏿‍⚕️',name:'Dr. Forson',role:'Senior Nurse',gender:'female',pitch:1.1,rate:.94,color:'#06b6d4'},
+    {emoji:'🧑🏾‍💼',name:'Mr. Asante',role:'HR Officer',gender:'male',pitch:.90,rate:.90,color:'#8b5cf6'},
+  ],
+  business:[
+    {emoji:'👔',name:'Mr. Amponsah',role:'Business Manager',gender:'male',pitch:.88,rate:.91,color:'#e8a023'},
+    {emoji:'👩🏾‍💼',name:'Mrs. Owusu',role:'HR Director',gender:'female',pitch:1.10,rate:.94,color:'#8b5cf6'},
+    {emoji:'🧑🏿‍💼',name:'Dr. Kusi',role:'Finance Lead',gender:'male',pitch:.86,rate:.90,color:'#06b6d4'},
+  ],
+  safety:[
+    {emoji:'🦺',name:'Eng. Osei',role:'Safety Officer',gender:'male',pitch:.86,rate:.90,color:'#f59e0b'},
+    {emoji:'👩🏿‍💼',name:'Mrs. Adusei',role:'HSE Manager',gender:'female',pitch:1.10,rate:.94,color:'#e8a023'},
+    {emoji:'👨🏾‍🚒',name:'Mr. Bediako',role:'Emergency Coordinator',gender:'male',pitch:.88,rate:.89,color:'#ef4444'},
+  ],
+};
+// Default fallback
+const IV_DEFAULT=[
+  {emoji:'🧑🏿‍💼',name:'Mr. Osei',role:'Senior Interviewer',gender:'male',pitch:.85,rate:.90,color:'#e8a023'},
+  {emoji:'👩🏿‍💼',name:'Ms. Amoako',role:'HR Manager',gender:'female',pitch:1.12,rate:.94,color:'#06b6d4'},
+];
+
+function getFieldInterviewers(field){
+  return IV_PROFILES[field]||IV_DEFAULT;
+}
+// Pick a random interviewer for this session (persists for the session)
+function pickSessionInterviewer(field){
+  const pool=getFieldInterviewers(field);
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+function updatePortrait(iv){
+  const portrait=$('#iv-portrait');
+  const nameCard=$('#iv-name-card');
+  const roleCard=$('#iv-role-card');
+  const statusDot=$('#iv-status-dot');
+  if(portrait)portrait.textContent=iv.emoji||'🧑🏿‍💼';
+  if(nameCard)nameCard.textContent=iv.name||'Interviewer';
+  if(roleCard)roleCard.textContent=iv.role||'Interviewer';
+  if(statusDot)statusDot.style.background=iv.color||'#7c3aed';
+  // Also update the d-iname label
+  const iname=$('#d-iname');
+  if(iname){iname.textContent=iv.name+' — '+iv.role;iname.style.color=iv.color||'#888'}
+}
 function toggleCamera(){
   const vid=$('#vid-prev'),icon=$('#cam-icon');
   if(!S.vidStream){toast('Camera not available.','err');return}
@@ -868,13 +997,50 @@ function fallbackGrade(convo,field){
 function setPhase(p){
   S.phase=p;
   const avatar=$('#avc'),rings=['.r1','.r2','.r3'],waves=$('#swv'),vizCanvas=$('#audio-canvas'),statusTxt=$('#d-st'),icon=$('#avc-i');
-  avatar.classList.remove('sp','li','th');rings.forEach(r=>$(r).classList.remove('pu'));waves.classList.remove('on');vizCanvas.classList.add('hidden');
+  const ivDot=$('#iv-status-dot'),ivStatus=$('#iv-status-text'),portrait=$('#iv-portrait');
+  if(avatar){avatar.classList.remove('sp','li','th');}
+  rings.forEach(r=>{const el=$(r);if(el)el.classList.remove('pu')});
+  if(waves)waves.classList.remove('on');
+  if(vizCanvas)vizCanvas.classList.add('hidden');
   switch(p){
-    case'speaking':avatar.classList.add('sp');rings.forEach(r=>$(r).classList.add('pu'));waves.classList.add('on');icon.className='fa-solid fa-volume-high';statusTxt.textContent='Speaking...';statusTxt.style.color='#e8a023';break;
-    case'listening':avatar.classList.add('li');icon.className='fa-solid fa-microphone';vizCanvas.classList.remove('hidden');drawVisualizer();statusTxt.textContent='Listening — speak your answer';statusTxt.style.color='#22c55e';break;
-    case'processing':avatar.classList.add('th');icon.className='fa-solid fa-brain';statusTxt.textContent='Processing...';statusTxt.style.color='#888';break;
-    case'done':icon.className='fa-solid fa-check';statusTxt.textContent='Interview complete';statusTxt.style.color='#e8a023';break;
-    default:icon.className='fa-solid fa-microphone-lines';statusTxt.textContent='Preparing...';statusTxt.style.color='#888';
+    case'speaking':
+      if(avatar)avatar.classList.add('sp');
+      if(portrait)portrait.classList.add('sp');
+      rings.forEach(r=>{const el=$(r);if(el)el.classList.add('pu')});
+      if(waves)waves.classList.add('on');
+      if(icon)icon.className='fa-solid fa-volume-high';
+      if(statusTxt){statusTxt.textContent='Speaking...';statusTxt.style.color='#e8a023'}
+      if(ivDot)ivDot.style.background='#e8a023';
+      if(ivStatus)ivStatus.textContent='Speaking...';
+      break;
+    case'listening':
+      if(avatar)avatar.classList.add('li');
+      if(portrait)portrait.classList.add('li');
+      if(icon)icon.className='fa-solid fa-microphone';
+      if(vizCanvas)vizCanvas.classList.remove('hidden');
+      drawVisualizer();
+      if(statusTxt){statusTxt.textContent='Listening — speak your answer';statusTxt.style.color='#10b981'}
+      if(ivDot)ivDot.style.background='#10b981';
+      if(ivStatus)ivStatus.textContent='Listening...';
+      break;
+    case'processing':
+      if(avatar)avatar.classList.add('th');
+      if(portrait){portrait.classList.remove('sp','li')}
+      if(icon)icon.className='fa-solid fa-brain';
+      if(statusTxt){statusTxt.textContent='Processing...';statusTxt.style.color='#888'}
+      if(ivDot)ivDot.style.background='#6b7280';
+      if(ivStatus)ivStatus.textContent='Thinking...';
+      break;
+    case'done':
+      if(portrait){portrait.classList.remove('sp','li')}
+      if(icon)icon.className='fa-solid fa-check';
+      if(statusTxt){statusTxt.textContent='Interview complete';statusTxt.style.color='#e8a023'}
+      if(ivDot)ivDot.style.background='#10b981';
+      if(ivStatus)ivStatus.textContent='Complete ✓';
+      break;
+    default:
+      if(icon)icon.className='fa-solid fa-microphone-lines';
+      if(statusTxt){statusTxt.textContent='Preparing...';statusTxt.style.color='#888'}
   }
 }
 function addMessage(role,text,interim){
@@ -940,23 +1106,26 @@ async function startInt(){
 }
 
 async function beginInterview(){
-  $(`#d-iname`).textContent=S.currentIV.name+' — '+S.currentIV.role;
-  $(`#d-iname`).style.color=S.currentIV.color||'#888';
+  // Set up portrait for single interviewer modes
+  const ivPool=getFieldInterviewers(S.field);
+  const portrait=ivPool[Math.floor(Math.random()*ivPool.length)];
+  if(S.mode!=='team'&&portrait){
+    S.currentIV={...S.currentIV,name:portrait.name,role:portrait.role,gender:portrait.gender,pitch:portrait.pitch,rate:portrait.rate,color:portrait.color};
+    updatePortrait(portrait);
+  }else{
+    updatePortrait({emoji:S.currentIV.gender==='female'?'👩🏿‍💼':'👨🏿‍💼',name:S.currentIV.name,role:S.currentIV.role,color:S.currentIV.color||'#7c3aed'});
+  }
 
   const vc=getVoiceCfg();
   const progLabel=S.profile?.program?` — ${S.profile.program}`:'';
   const greeting=S.mode==='team'
     ?`${gtg()}, ${S.name}. Welcome to your panel interview for ${S.fieldLabel}${progLabel}. ${S.currentIV.intro} Please start by telling us about yourself.`
-    :`${gtg()}, ${S.name}. I'm ${S.currentIV.name}, your interviewer today. We're doing a mock national service interview for ${S.fieldLabel}${progLabel}. I'll ask you ${S.totalQ} questions. Take your time and speak clearly. Let's begin — please tell me about yourself.`;
+    :`${gtg()}, ${S.name}. I'm ${S.currentIV.name}, your interviewer today. We're doing a mock national service interview for ${S.fieldLabel}${progLabel}. I'll ask you ${S.totalQ} questions. Speak clearly and take your time. Let's begin — please tell me about yourself.`;
 
   S.conversation.push({role:'ai',text:greeting,interviewer:S.currentIV.name});
   addMessage('ai',greeting,false);
   setPhase('speaking');
-
-  // Request mic+camera NOW (after user gesture from tap) — critical for iOS
   await startMedia();
-
-  // Speak greeting — now guaranteed to work because it's inside a user-gesture context
   await tts.speak(greeting,vc);
   await startListening();
 }
@@ -967,10 +1136,10 @@ async function startListening(){
   const ok=stt.start(
     (final,interim)=>{
       removeInterim();
-      const combined=final+(interim?interim:'');
-      if(interim)addMessage('student',combined,true);
-      else if(final){removeInterim();addMessage('student',final,false)}
-      // Update word count meter live while speaking
+      // Show full accumulated transcript + current interim
+      const display=(S.finalTxt+(interim?' '+interim:'')).trim();
+      if(display)addMessage('student',display,!!interim);
+      // Update word count meter with full text so far
       updateWCMeter(S.finalTxt+(S.interimTxt||''));
     },
     (text)=>processAnswer(text)
@@ -1013,59 +1182,78 @@ async function processAnswer(text){
   S.currentQ++;updateProgress();
 
   // ── REAL-TIME ANSWER ANALYSIS ──────────────────────────────────────────────
+  // ── PARALLELISE: start generating next question AND analysing answer simultaneously ──
   let analysis=null;
+  let question=null;
   const currentQType=S.questionArc[S.currentQ-1]||'followup';
-  if(S.serverUp&&text.trim().length>8){
-    try{
-      analysis=await fetch(getAPI()+'/api/analyse-answer',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({question:S.conversation.filter(c=>c.role==='ai').slice(-1)[0]?.text||'',answer:text,field:S.field,fieldLabel:S.fieldLabel,questionType:currentQType,interviewerName:S.currentIV.name})
-      }).then(r=>r.ok?r.json():null);
-    }catch(e){/* silent fallback */}
+
+  if(S.currentQ>=S.totalQ){
+    // Last question — just analyse, no need to generate next question
+    if(S.serverUp&&text.trim().length>8){
+      try{
+        analysis=await fetch(getAPI()+'/api/analyse-answer',{method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({question:S.conversation.filter(c=>c.role==='ai').slice(-1)[0]?.text||'',answer:text,field:S.field,fieldLabel:S.fieldLabel,questionType:currentQType,interviewerName:S.currentIV.name})
+        }).then(r=>r.ok?r.json():null);
+      }catch(e){}
+    }
+    if(analysis?.acknowledgement){
+      setPhase('speaking');addMessage('ai',analysis.acknowledgement,false);
+      S.conversation.push({role:'ai',text:analysis.acknowledgement,interviewer:S.currentIV.name});
+      await tts.speak(analysis.acknowledgement,getVoiceCfg());
+    }
+    showCoachTip(analysis?.quality||'partial');
+    await endInterview();
+    return;
   }
 
-  // Speak acknowledgement + optional correction
-  if(analysis){
-    const ack=analysis.acknowledgement||'';
-    const correction=analysis.correction;
-    let response=ack;
-    if(correction&&analysis.isWrongTechnically&&['technical','scenario'].includes(currentQType)&&Math.random()>0.35){
-      response=ack?`${ack} ${correction}`:correction;
-    }
-    if(response&&response.trim()){
-      setPhase('speaking');addMessage('ai',response,false);
-      S.conversation.push({role:'ai',text:response,interviewer:S.currentIV.name});
-      await tts.speak(response,getVoiceCfg());
-    }
-    // Show coach tip silently (non-spoken visual feedback)
-    showCoachTip(analysis.quality||'partial');
-  }
+  setPhase('processing');
 
-  if(S.currentQ>=S.totalQ){await endInterview();return}
-
-  setPhase('processing');await sl(120); // minimal delay — just enough for UI to update
   // Panel interviewer rotation
   if(S.mode==='team'&&S.currentQ%2===0){
     S.teamIdx++;S.currentIV=getCurrentInterviewer();
-    $(`#d-iname`).textContent=S.currentIV.name+' — '+S.currentIV.role;
-    $(`#d-iname`).style.color=S.currentIV.color||'#888';
+    updatePortrait({emoji:S.currentIV.gender==='female'?'👩🏿‍💼':'👨🏿‍💼',name:S.currentIV.name,role:S.currentIV.role,color:S.currentIV.color||'#7c3aed'});
   }
-  let question=null;
-  if(S.serverUp){
-    try{question=await apiQuestion({
-      conversation:S.conversation,field:S.field,fieldLabel:S.fieldLabel,
-      name:S.name,cvData:S.cvData,interviewer:S.currentIV,
-      currentQ:S.currentQ,totalQ:S.totalQ,questionArc:S.questionArc,
-      program:S.profile?.program||'',
-      internshipInfo:S.internshipInfo,hasInternship:S.hasInternship
-    })}
-    catch(e){console.warn('LLM question failed, using fallback')}
-  }
+
+  // Fire both API calls in parallel — cuts wait time roughly in half
+  const questionPromise=S.serverUp?apiQuestion({
+    conversation:S.conversation,field:S.field,fieldLabel:S.fieldLabel,
+    name:S.name,cvData:S.cvData,interviewer:S.currentIV,
+    currentQ:S.currentQ,totalQ:S.totalQ,questionArc:S.questionArc,
+    program:S.profile?.program||'',internshipInfo:S.internshipInfo,hasInternship:S.hasInternship
+  }).catch(()=>null):Promise.resolve(null);
+
+  const analysisPromise=S.serverUp&&text.trim().length>8?fetch(getAPI()+'/api/analyse-answer',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({question:S.conversation.filter(c=>c.role==='ai').slice(-1)[0]?.text||'',answer:text,field:S.field,fieldLabel:S.fieldLabel,questionType:currentQType,interviewerName:S.currentIV.name})
+  }).then(r=>r.ok?r.json():null).catch(()=>null):Promise.resolve(null);
+
+  // Wait for both in parallel
+  [question,analysis]=await Promise.all([questionPromise,analysisPromise]);
   if(!question)question=fallbackQuestion(text,S.field,S.currentIV,S.currentQ);
+
+  // Speak acknowledgement first (optional correction for wrong technical answers)
+  if(analysis){
+    const ack=analysis.acknowledgement||'';
+    const correction=analysis.correction;
+    let ackResponse=ack;
+    if(correction&&analysis.isWrongTechnically&&['technical','scenario'].includes(currentQType)&&Math.random()>0.35){
+      ackResponse=ack?`${ack} ${correction}`:correction;
+    }
+    if(ackResponse&&ackResponse.trim()){
+      setPhase('speaking');addMessage('ai',ackResponse,false);
+      S.conversation.push({role:'ai',text:ackResponse,interviewer:S.currentIV.name});
+      await tts.speak(ackResponse,getVoiceCfg());
+    }
+    showCoachTip(analysis.quality||'partial');
+  }
+
+  // Then ask the next question
   S.conversation.push({role:'ai',text:question,interviewer:S.currentIV.name});
   addMessage('ai',question,false);
   setPhase('speaking');
   await tts.speak(question,getVoiceCfg());
-  await startListening(); // no extra delay — listen immediately after AI finishes
+  await startListening();
 }
 
 async function endInterview(){
