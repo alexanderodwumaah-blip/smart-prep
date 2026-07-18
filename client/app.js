@@ -583,6 +583,7 @@ async function apiGrade(body){const r=await fetch(getAPI()+'/api/grade',{method:
 // ===== DASHBOARD =====
 async function loadDashboard(){
   if(!S.user)return;
+  try{
   S.name=S.profile?.name||'Student';
   $(`#dash-greet`).textContent=`${gtg()}, ${S.name}!`;
   const{data:sessions}=await sb.from('interview_sessions').select('*').eq('user_id',S.user.id).order('started_at',{ascending:false});
@@ -623,6 +624,12 @@ async function loadDashboard(){
     row.innerHTML=`<div class="flex-1"><div class="text-xs font-medium">${FL[s.field]||s.field}${s.video_url?' <i class="fa-solid fa-video text-acc text-[10px]"></i>':''}</div><div class="text-[10px] text-mut">${s.interviewer_mode||'single'} · ${date}</div></div><div class="text-xs font-bold ${score>=70?'text-ok':score>=50?'text-acc':'text-err'}">${score!==null?score+'%':'—'}</div><i class="fa-solid fa-chevron-right text-[10px] text-mut ml-2"></i>`;
     row.onclick=()=>showDetail(s,grades[s.id]);el.appendChild(row);
   });
+  }catch(dashErr){
+    console.error('loadDashboard error:',dashErr);
+    // Show a usable dashboard even if queries fail
+    const el=$('#dash-sessions');
+    if(el)el.innerHTML='<div class="p-5 text-center text-xs text-slate-500">Could not load sessions — please refresh.</div>';
+  }
 }
 
 function drawTrend(scores){
@@ -1474,32 +1481,47 @@ function initEvents(){
 
 // ===== AUTH PROFILE LOADER =====
 async function loadProfile(user){
-  const{data:profile}=await sb.from('profiles').select('*').eq('id',user.id).single();
-  if(profile){
-    const meta=user.user_metadata||{};const updates={};
-    if(!profile.name&&meta.name)updates.name=meta.name;
-    if(!profile.university&&meta.university)updates.university=meta.university;
-    if(!profile.program&&meta.program)updates.program=meta.program;
-    if(!profile.program_category&&meta.program_category)updates.program_category=meta.program_category;
-    if(!profile.internship_info&&meta.internship_info)updates.internship_info=meta.internship_info;
-    if(profile.has_internship==null&&meta.has_internship!=null)updates.has_internship=meta.has_internship;
-    if(Object.keys(updates).length){await sb.from('profiles').update(updates).eq('id',user.id);S.profile={...profile,...updates}}
-    else S.profile=profile;
-  }else{
-    const meta=user.user_metadata||{};
-    const{data:np}=await sb.from('profiles').upsert({
-      id:user.id,
-      name:meta.name||user.email?.split('@')[0]||'User',
-      university:meta.university||'',
-      program:meta.program||'',
-      program_category:meta.program_category||'',
-      internship_info:meta.internship_info||'',
-      has_internship:meta.has_internship||false,
-      role:'student'
-    },{onConflict:'id'}).select().single();
-    S.profile=np||{id:user.id,role:'student',name:meta.name||'User'};
+  try{
+    const{data:profile,error:fetchErr}=await sb.from('profiles').select('*').eq('id',user.id).single();
+    if(fetchErr&&fetchErr.code!=='PGRST116'){
+      // PGRST116 = row not found — that's ok, we'll create it below
+      console.warn('loadProfile fetch error:',fetchErr.message);
+    }
+    if(profile){
+      const meta=user.user_metadata||{};const updates={};
+      if(!profile.name&&meta.name)updates.name=meta.name;
+      if(!profile.university&&meta.university)updates.university=meta.university;
+      if(!profile.program&&meta.program)updates.program=meta.program;
+      // Only update new columns if they exist in the DB (check profile has the key)
+      if('program_category' in profile&&!profile.program_category&&meta.program_category)updates.program_category=meta.program_category;
+      if('internship_info' in profile&&!profile.internship_info&&meta.internship_info)updates.internship_info=meta.internship_info;
+      if('has_internship' in profile&&profile.has_internship==null&&meta.has_internship!=null)updates.has_internship=meta.has_internship;
+      if(Object.keys(updates).length){
+        await sb.from('profiles').update(updates).eq('id',user.id);
+        S.profile={...profile,...updates};
+      }else{
+        S.profile=profile;
+      }
+    }else{
+      // Profile row doesn't exist — create it with minimal safe fields
+      const meta=user.user_metadata||{};
+      const baseProfile={
+        id:user.id,
+        name:meta.name||user.email?.split('@')[0]||'User',
+        university:meta.university||'',
+        program:meta.program||'',
+        role:'student'
+      };
+      const{data:np,error:upsertErr}=await sb.from('profiles').upsert(baseProfile,{onConflict:'id'}).select().single();
+      if(upsertErr)console.warn('Profile upsert error:',upsertErr.message);
+      S.profile=np||{...baseProfile};
+    }
+  }catch(err){
+    console.warn('loadProfile exception:',err.message);
+    // Still set a minimal profile so the app can function
+    S.profile={id:user.id,role:'student',name:user.email?.split('@')[0]||'User'};
   }
-  // Derive field from program_category if user hasn't manually set a field yet
+  // Derive field from program_category if available
   if(!S.field&&S.profile?.program_category&&S.profile.program_category!=='other'){
     const cat=S.profile.program_category;
     if(FL[cat]){S.field=cat;S.fieldLabel=FL[cat]}
@@ -1517,18 +1539,26 @@ async function init(){
   // Auth state — single source of truth with double-fire guard
   let _authHandled=false;
   sb.auth.onAuthStateChange(async(event,session)=>{
-    if(event==='PASSWORD_RECOVERY'){showPasswordResetUI();return;}
-    if(event==='SIGNED_IN'&&session){
-      if(_authHandled&&S.screen!=='auth')return; // skip re-navigation if already on a screen
-      _authHandled=true;
-      S.user=session.user;
-      await loadProfile(session.user);
-      if(S.profile?.role==='admin'){loadAdmin();showScreen('admin')}
-      else{loadDashboard();showScreen('dash')}
-    }else if(event==='SIGNED_OUT'||event==='USER_DELETED'){
-      _authHandled=false;S.user=null;S.profile=null;showScreen('auth');
-    }else if(event==='TOKEN_REFRESHED'&&session&&S.user){
-      S.user=session.user; // silent refresh — no navigation
+    try{
+      if(event==='PASSWORD_RECOVERY'){showPasswordResetUI();return;}
+      if((event==='SIGNED_IN'||event==='INITIAL_SESSION')&&session){
+        if(_authHandled&&S.screen!=='auth')return;
+        _authHandled=true;
+        S.user=session.user;
+        await loadProfile(session.user);
+        showScreen(S.profile?.role==='admin'?'admin':'dash'); // show screen immediately
+        if(S.profile?.role==='admin')loadAdmin();
+        else loadDashboard(); // load data after screen is visible
+      }else if(event==='SIGNED_OUT'||event==='USER_DELETED'){
+        _authHandled=false;S.user=null;S.profile=null;showScreen('auth');
+      }else if(event==='TOKEN_REFRESHED'&&session&&S.user){
+        S.user=session.user;
+      }
+    }catch(err){
+      console.error('Auth handler error:',err);
+      // Don't leave user stuck — show auth screen as safe fallback
+      showScreen('auth');
+      showAE('Something went wrong. Please try signing in again.');
     }
   });
 
