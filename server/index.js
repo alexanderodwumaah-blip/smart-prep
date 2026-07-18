@@ -48,13 +48,16 @@ try {
 
   const upload = multer({
     dest: uploadDir,
-    limits: { fileSize: 10 * 1024 * 1024 },
+    limits: { fileSize: 25 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
       const ok = [
         'application/pdf',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        // audio formats for Whisper transcription
+        'audio/webm', 'audio/ogg', 'audio/mp4', 'audio/mpeg', 'audio/wav',
+        'audio/x-wav', 'audio/x-m4a', 'video/webm', 'application/octet-stream'
       ];
-      cb(null, ok.includes(file.mimetype));
+      cb(null, ok.includes(file.mimetype) || file.mimetype.startsWith('audio/') || file.mimetype.startsWith('video/'));
     }
   });
 
@@ -102,6 +105,23 @@ try {
       res.json(result);
     } catch (err) {
       console.error('Answer analysis error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Whisper transcription endpoint ─────────────────────────────────────────
+  // Accepts audio/webm or audio/* blob, returns { transcript }
+  app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: 'No audio file' });
+      const { transcribeAudio } = require('./services/transcribe');
+      const transcript = await transcribeAudio(req.file.path, req.file.originalname || 'audio.webm');
+      try { fs.unlinkSync(req.file.path); } catch (e) {}
+      res.json({ transcript });
+    } catch (err) {
+      console.error('Transcribe error:', err);
+      // Clean up file even on error
+      if (req.file) try { fs.unlinkSync(req.file.path); } catch (e) {}
       res.status(500).json({ error: err.message });
     }
   });

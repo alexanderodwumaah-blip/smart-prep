@@ -250,7 +250,7 @@ function handleSetupFieldChange(sel){
   if(startBtn)startBtn.disabled=!v;
 }
 
-// ===== TTS — richer voice, sentence-aware pacing =====
+// ===== TTS — richer voice, sentence-aware pacing, interruptible =====
 const tts={
   syn:window.speechSynthesis,mV:null,fV:null,_ready:false,
   init(){
@@ -279,11 +279,12 @@ const tts={
     // Split on sentence boundaries for more natural pacing
     const segs=text.match(/[^.!?]+[.!?]+(?:\s|$)|[^.!?]+$/g)||[text];
     for(let i=0;i<segs.length;i++){
+      // Check for interruption between sentences
       if(!S.isSpeaking)break;
       const s=segs[i].trim();if(!s)continue;
       await this._utterance(s,cfg);
-      // Natural pause between sentences
-      if(i<segs.length-1)await sl(180+Math.random()*140);
+      // Natural pause between sentences — but bail if interrupted
+      if(i<segs.length-1&&S.isSpeaking)await sl(150+Math.random()*120);
     }
     S.isSpeaking=false;
   },
@@ -296,7 +297,7 @@ const tts={
       u.volume=1;
       // Fallback timeout based on text length
       const timeout=Math.max(3000,text.length*95);
-      const timer=setTimeout(resolve,timeout);
+      const timer=setTimeout(()=>{resolve()},timeout);
       u.onend=()=>{clearTimeout(timer);resolve()};
       u.onerror=()=>{clearTimeout(timer);resolve()};
       this.syn.speak(u);
@@ -306,50 +307,242 @@ const tts={
   _pickVoice(gender){return gender==='female'?(this.fV||this.mV):(this.mV||this.fV)}
 };
 
-// ===== STT =====
-const stt={rec:null,ok:false,
-  init(){
-    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-    if(!SR){this.ok=false;return}
-    this.rec=new SR();this.rec.continuous=true;this.rec.interimResults=true;this.rec.lang='en-US';
-    this.ok=true;
+// ===== SMART STT — VAD + Whisper + Web Speech interim display =====
+//
+// Architecture:
+//   1. Web Speech API  → live interim text display ONLY (visual feedback)
+//   2. MediaRecorder   → captures raw audio chunks the whole time
+//   3. Web Audio VAD   → detects speech/silence via energy threshold
+//   4. On "done":      → send audio blob to /api/transcribe (Whisper) for
+//                         accurate final transcript; fall back to Web Speech final text
+//
+// "Done" is triggered when:
+//   a) 2.5s of continuous silence AFTER at least 1 word was heard, OR
+//   b) user manually hits Submit/Enter, OR
+//   c) 90s safety timeout
+//
+// Interruption: if user speaks while TTS is playing → TTS is stopped immediately
+
+const stt = {
+  // ── Web Speech (interim display only) ──────────────────────────────────
+  rec: null, wsOk: false,
+  // ── Audio recording ─────────────────────────────────────────────────────
+  recorder: null, chunks: [], audioStream: null,
+  // ── VAD state ───────────────────────────────────────────────────────────
+  vadNode: null, vadInterval: null,
+  speechDetected: false, silenceMs: 0,
+  SPEECH_THRESH: 18,   // energy level 0-255 above which we consider "speech"
+  SILENCE_WAIT: 2500,  // ms of silence to wait before submitting
+  VAD_TICK: 80,        // ms between VAD checks
+  // ── Callbacks ───────────────────────────────────────────────────────────
+  _onResult: null, _onEnd: null,
+
+  init() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SR) {
+      this.rec = new SR();
+      this.rec.continuous = true;
+      this.rec.interimResults = true;
+      this.rec.lang = 'en-US';
+      this.wsOk = true;
+    }
   },
-  start(onResult,onEnd){
-    if(!this.ok)return false;
-    S.finalTxt='';S.interimTxt='';
-    let fullFinal=''; // accumulates ALL final results across multiple recognitions
-    this.rec.onresult=e=>{
-      let sessionFinal='',interim='';
-      for(let i=e.resultIndex;i<e.results.length;i++){
-        const t=e.results[i][0].transcript;
-        if(e.results[i].isFinal){sessionFinal+=t}
-        else{interim+=t}
-      }
-      if(sessionFinal){
-        fullFinal+=' '+sessionFinal;
-        S.finalTxt=fullFinal.trim();
-        S.interimTxt='';
-      }else if(interim){
-        S.interimTxt=interim;
-      }
-      onResult(S.finalTxt,interim);
-      resetSilenceTimer();
-    };
-    this.rec.onend=()=>{
-      if(S.isListening){try{this.rec.start()}catch(e){}}
-      else onEnd(S.finalTxt||S.interimTxt);
-    };
-    this.rec.onerror=e=>{if(e.error!=='no-speech'&&e.error!=='aborted')console.warn('STT error:',e.error)};
-    try{this.rec.start();return true}catch(e){return false}
+
+  // ── Start listening ─────────────────────────────────────────────────────
+  start(onResult, onEnd) {
+    this._onResult = onResult;
+    this._onEnd = onEnd;
+    S.finalTxt = ''; S.interimTxt = '';
+    this.chunks = [];
+    this.speechDetected = false;
+    this.silenceMs = 0;
+
+    // 1. Start Web Speech for live interim display
+    this._startWebSpeech();
+
+    // 2. Start MediaRecorder on the existing audio stream (from startMedia)
+    this._startRecorder();
+
+    // 3. Start VAD loop
+    this._startVAD();
+
+    return true;
   },
-  stop(){S.isListening=false;clearSilenceTimer();try{this.rec.stop()}catch(e){}}
+
+  // ── Web Speech (display only, NOT used for final transcript) ────────────
+  _startWebSpeech() {
+    if (!this.wsOk) return;
+    let wsAccum = '';
+    this.rec.onresult = e => {
+      if (!S.isListening) return;
+      let sessionFinal = '', interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) { sessionFinal += t; }
+        else { interim += t; }
+      }
+      if (sessionFinal) {
+        wsAccum += ' ' + sessionFinal;
+        S.finalTxt = wsAccum.trim();
+        S.interimTxt = '';
+      } else if (interim) {
+        S.interimTxt = interim;
+      }
+      if (this._onResult) this._onResult(S.finalTxt, S.interimTxt);
+      // Reset VAD silence counter when Web Speech confirms speech
+      this.silenceMs = 0;
+      this.speechDetected = true;
+    };
+    this.rec.onend = () => {
+      if (S.isListening) { try { this.rec.start(); } catch (e) {} }
+    };
+    this.rec.onerror = e => {
+      if (e.error !== 'no-speech' && e.error !== 'aborted') {
+        console.warn('Web Speech error:', e.error);
+      }
+    };
+    try { this.rec.start(); } catch (e) {}
+  },
+
+  // ── MediaRecorder: capture raw audio ────────────────────────────────────
+  _startRecorder() {
+    // Prefer the existing mic stream from startMedia
+    const stream = S.micStream || (S.vidStream
+      ? new MediaStream(S.vidStream.getAudioTracks())
+      : null);
+    if (!stream) { console.warn('No audio stream for recorder'); return; }
+
+    const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus'
+      : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
+      : MediaRecorder.isTypeSupported('audio/ogg') ? 'audio/ogg'
+      : '';
+
+    try {
+      this.recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : {});
+      this.recorder.ondataavailable = e => {
+        if (e.data && e.data.size > 0) this.chunks.push(e.data);
+      };
+      this.recorder.start(200); // collect in 200ms chunks for low latency
+      this.audioStream = stream;
+    } catch (err) {
+      console.warn('stt recorder failed:', err.message);
+    }
+  },
+
+  // ── VAD loop: energy-based voice activity detection ─────────────────────
+  _startVAD() {
+    if (!S.analyser) return;
+    const data = new Uint8Array(S.analyser.frequencyBinCount);
+
+    this.vadInterval = setInterval(() => {
+      if (!S.isListening) return;
+      S.analyser.getByteFrequencyData(data);
+
+      // Average energy of speech-range frequencies (300Hz–3kHz)
+      // For fftSize=256 and typical sampleRate=48000, bin width ≈ 187Hz
+      // bins 2-16 cover roughly 300Hz–3000Hz
+      let sum = 0, count = 0;
+      const lo = 2, hi = Math.min(16, data.length - 1);
+      for (let i = lo; i <= hi; i++) { sum += data[i]; count++; }
+      const energy = count > 0 ? sum / count : 0;
+
+      if (energy > this.SPEECH_THRESH) {
+        // ── Active speech detected ──────────────────────────────────────
+        this.speechDetected = true;
+        this.silenceMs = 0;
+
+        // INTERRUPT TTS if user starts talking while interviewer is speaking
+        if (S.isSpeaking) {
+          tts.stop();
+          setPhase('listening');
+        }
+      } else {
+        // ── Silence ─────────────────────────────────────────────────────
+        if (this.speechDetected) {
+          this.silenceMs += this.VAD_TICK;
+          if (this.silenceMs >= this.SILENCE_WAIT) {
+            // User has been silent long enough — submit
+            this.stop();
+          }
+        }
+      }
+    }, this.VAD_TICK);
+  },
+
+  // ── Stop listening and submit ────────────────────────────────────────────
+  stop() {
+    if (!S.isListening) return;
+    S.isListening = false;
+
+    // Stop VAD
+    if (this.vadInterval) { clearInterval(this.vadInterval); this.vadInterval = null; }
+    this.silenceMs = 0;
+    clearSilenceTimer();
+
+    // Stop Web Speech
+    try { if (this.rec) this.rec.stop(); } catch (e) {}
+
+    // Stop recorder and get blob
+    if (this.recorder && this.recorder.state !== 'inactive') {
+      this.recorder.onstop = () => { this._submitAudio(); };
+      try { this.recorder.stop(); } catch (e) { this._submitAudio(); }
+    } else {
+      this._submitAudio();
+    }
+  },
+
+  // ── Send audio to Whisper, fall back to Web Speech text ─────────────────
+  async _submitAudio() {
+    const wsText = (S.finalTxt || S.interimTxt || '').trim();
+
+    if (this.chunks.length === 0) {
+      // No audio recorded — use whatever Web Speech gave us
+      if (this._onEnd) this._onEnd(wsText);
+      return;
+    }
+
+    // Try Whisper transcription if server is up
+    let whisperText = '';
+    if (S.serverUp) {
+      try {
+        const mimeType = this.recorder?.mimeType || 'audio/webm';
+        const ext = mimeType.includes('ogg') ? '.ogg' : '.webm';
+        const blob = new Blob(this.chunks, { type: mimeType });
+        // Only send if audio is substantial (>2KB = has real content)
+        if (blob.size > 2000) {
+          const fd = new FormData();
+          fd.append('audio', blob, 'answer' + ext);
+          const resp = await fetch(getAPI() + '/api/transcribe', {
+            method: 'POST',
+            body: fd,
+            signal: AbortSignal.timeout(15000),
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            whisperText = (data.transcript || '').trim();
+          }
+        }
+      } catch (err) {
+        console.warn('Whisper transcription failed, falling back to Web Speech:', err.message);
+      }
+    }
+
+    this.chunks = [];
+    // Prefer Whisper result; fall back to Web Speech accumulation
+    const finalText = whisperText || wsText;
+    if (this._onEnd) this._onEnd(finalText);
+  },
 };
-function resetSilenceTimer(){
+
+function resetSilenceTimer() {
   clearSilenceTimer();
-  // 4 seconds silence → auto-submit (down from 6s for faster feel)
-  S.silenceT=setTimeout(()=>{if(S.isListening)stt.stop()},4000);
+  // Backup timer — 90s absolute max (VAD handles normal silence detection)
+  S.silenceT = setTimeout(() => { if (S.isListening) stt.stop(); }, 90000);
 }
-function clearSilenceTimer(){if(S.silenceT){clearTimeout(S.silenceT);S.silenceT=null}}
+function clearSilenceTimer() {
+  if (S.silenceT) { clearTimeout(S.silenceT); S.silenceT = null; }
+}
 
 // ===== TRANSCRIPT TOGGLE =====
 let transcriptVisible=true;
@@ -509,7 +702,11 @@ function confirmLeave(){
   const msg='Leave the interview? Your progress will be saved up to this point.';
   if(confirm(msg)){
     S.ending=true;
-    stt.stop();stopVisualizer();clearSilenceTimer();
+    stt.stop();
+    // Clean up VAD and recorder
+    if(stt.vadInterval){clearInterval(stt.vadInterval);stt.vadInterval=null}
+    if(stt.recorder&&stt.recorder.state!=='inactive'){try{stt.recorder.stop()}catch(e){};stt.recorder=null}
+    stopVisualizer();clearSilenceTimer();
     if(S.maxT){clearTimeout(S.maxT);S.maxT=null}
     tts.stop();
     stopVideoRecording().then(()=>{
@@ -554,15 +751,18 @@ async function startMedia(){
     return false;
   }
 
-  // Step 2: Set up audio analyser immediately (so visualizer works)
+  // Step 2: Set up audio analyser immediately (so visualizer AND VAD work)
   S.audioCtx=new(window.AudioContext||window.webkitAudioContext)();
   await S.audioCtx.resume(); // always force resume
   S.analyser=S.audioCtx.createAnalyser();
   S.analyser.fftSize=256;
   S.analyser.minDecibels=-90;
   S.analyser.maxDecibels=-10;
-  S.analyser.smoothingTimeConstant=0.8;
-  S.audioCtx.createMediaStreamSource(audioStream).connect(S.analyser);
+  S.analyser.smoothingTimeConstant=0.6; // less smoothing = more responsive for VAD
+  const micSource = S.audioCtx.createMediaStreamSource(audioStream);
+  micSource.connect(S.analyser);
+  // Save the pure mic stream so stt recorder can use it independently
+  S.micStream = audioStream;
 
   // Step 3: Request camera separately — if denied, interview continues audio-only
   try{
@@ -615,6 +815,11 @@ function stopViz(){stopVisualizer()} // alias
 
 async function stopVideoRecording(){
   return new Promise(resolve=>{
+    // Stop stt recorder first to avoid resource conflicts
+    if(stt.recorder&&stt.recorder.state!=='inactive'){
+      try{stt.recorder.stop()}catch(e){}
+      stt.recorder=null;
+    }
     if(!S.mediaRecorder||!S.isRecording){resolve(null);return}
     S.isRecording=false; // guard against double calls
     S.mediaRecorder.onstop=async()=>{
@@ -1190,7 +1395,7 @@ function setPhase(p){
       if(icon)icon.className='fa-solid fa-microphone';
       if(vizCanvas)vizCanvas.classList.remove('hidden');
       drawVisualizer();
-      if(statusTxt){statusTxt.textContent='Listening — speak your answer';statusTxt.style.color='#10b981'}
+      if(statusTxt){statusTxt.textContent='Listening — speak your answer freely';statusTxt.style.color='#10b981'}
       if(ivDot)ivDot.style.background='#10b981';
       if(ivStatus)ivStatus.textContent='Listening...';
       break;
@@ -1296,31 +1501,38 @@ async function beginInterview(){
   S.conversation.push({role:'ai',text:greeting,interviewer:S.currentIV.name});
   addMessage('ai',greeting,false);
   setPhase('speaking');
-  await startMedia();
+  const mediaOk=await startMedia();
   await tts.speak(greeting,vc);
-  await startListening();
+  // Only proceed to listening if TTS completed (not interrupted — if interrupted,
+  // the VAD already flipped phase to listening and will call startListening)
+  if(!S.isListening)await startListening();
 }
 
 async function startListening(){
   if(S.ending)return;
   setPhase('listening');S.isListening=true;
+  S.finalTxt='';S.interimTxt='';
+
   const ok=stt.start(
     (final,interim)=>{
       removeInterim();
-      // Show full accumulated transcript + current interim
-      const display=(S.finalTxt+(interim?' '+interim:'')).trim();
+      // Show full accumulated transcript + current interim as live preview
+      const display=(final+(interim?' '+interim:'')).trim();
       if(display)addMessage('student',display,!!interim);
       // Update word count meter with full text so far
-      updateWCMeter(S.finalTxt+(S.interimTxt||''));
+      updateWCMeter(final+(interim||''));
     },
     (text)=>processAnswer(text)
   );
+
   if(!ok){
+    // No mic/recorder — fall back to text input
     $(`#inp-txt`).disabled=false;$(`#btn-send`).disabled=false;
-    $(`#d-st`).textContent='Mic unavailable — type your answer below';$(`#d-st`).style.color='#f59e0b';
+    $(`#d-st`).textContent='Voice unavailable — type your answer below';
+    $(`#d-st`).style.color='#f59e0b';
   }
-  // Safety timeout: 90s max per answer
-  S.maxT=setTimeout(()=>{if(S.isListening)stt.stop()},90000);
+  // 90s absolute safety timeout
+  S.maxT=setTimeout(()=>{if(S.isListening)stt.stop();},90000);
 }
 
 async function processAnswer(text){
@@ -1329,23 +1541,50 @@ async function processAnswer(text){
   if(S.maxT){clearTimeout(S.maxT);S.maxT=null}
   stopVisualizer();
   hideWCMeter();
+  // Show brief "transcribing..." indicator while Whisper processes
+  const d_st=$('#d-st');
+  if(d_st){d_st.textContent='Transcribing...';d_st.style.color='#7c3aed'}
 
-  // Fallback to typed input
+  // ── Fallback to typed input if voice gave nothing ──────────────────────
   if(!text||text.trim().length<3){
     const typed=$('#inp-txt')?.value.trim();
     if(typed&&typed.length>=3){text=typed;$(`#inp-txt`).value=''}
     else{
       setPhase('speaking');
       const retry=pk([
-        "I didn't quite catch that — could you repeat or type your answer below?",
-        "Sorry, I missed that. Could you speak a bit clearer, or type it out?",
-        "I didn't hear you clearly. Please try again or use the text box."
+        "I didn't quite catch that — could you speak a bit more clearly, or type your answer below?",
+        "Sorry, I couldn't hear you well. Could you repeat that, or type it out?",
+        "I didn't hear a clear answer. Please try speaking again, or use the text box below."
       ]);
-      addMessage('ai',retry,false);S.conversation.push({role:'ai',text:retry,interviewer:S.currentIV.name});
-      await tts.speak(retry,getVoiceCfg());await startListening();return;
+      addMessage('ai',retry,false);
+      S.conversation.push({role:'ai',text:retry,interviewer:S.currentIV.name});
+      await tts.speak(retry,getVoiceCfg());
+      await startListening();
+      return;
     }
   }
+
+  // ── Detect nonsensical input (random sounds, very incoherent) ──────────
+  // A "nonsensical" answer is < 4 real words, OR made up of pure filler
+  const wordCount = text.trim().split(/\s+/).filter(w=>w.length>1).length;
+  const fillerOnly = /^(um+|uh+|ah+|er+|hmm+|okay|ok|yes|no|yeah|nope|hi|hello|hey|test|testing|check|one two|lalala|blah)[\s.,!?]*$/i.test(text.trim());
+
+  if(wordCount < 4 || fillerOnly){
+    setPhase('speaking');
+    const clarify=pk([
+      "It seems I only caught a few words. Could you elaborate on your answer?",
+      "I want to make sure I understand you properly — could you say that again more fully?",
+      "That was a bit brief. Please take a moment and give me a more complete answer."
+    ]);
+    addMessage('ai',clarify,false);
+    S.conversation.push({role:'ai',text:clarify,interviewer:S.currentIV.name});
+    await tts.speak(clarify,getVoiceCfg());
+    await startListening();
+    return;
+  }
+
   removeInterim();
+  // Ensure the final answer is shown (not interim)
   const lastSt=Array.from($$('.m-st')).pop();
   if(!lastSt||lastSt.querySelector('.mb')?.textContent!==text)addMessage('student',text,false);
   S.conversation.push({role:'student',text});
@@ -1415,6 +1654,8 @@ async function processAnswer(text){
       setPhase('speaking');addMessage('ai',ackResponse,false);
       S.conversation.push({role:'ai',text:ackResponse,interviewer:S.currentIV.name});
       await tts.speak(ackResponse,getVoiceCfg());
+      // If user interrupted the ack, they're already talking — don't restart listening
+      if(S.isListening)return;
     }
     showCoachTip(analysis.quality||'partial');
   }
@@ -1424,7 +1665,7 @@ async function processAnswer(text){
   addMessage('ai',question,false);
   setPhase('speaking');
   await tts.speak(question,getVoiceCfg());
-  await startListening();
+  if(!S.isListening)await startListening();
 }
 
 async function endInterview(){
@@ -1920,7 +2161,8 @@ async function loadProfile(user){
 async function init(){
   mkP();tts.init();stt.init();initEvents();
   if(!isSC())$(`#pw-prot`).style.display='flex';
-  if(!stt.ok)$(`#pw-stt`).style.display='flex';
+  const noMic=!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia;
+  if(noMic&&$('#pw-stt'))$(`#pw-stt`).style.display='flex';
   const today=new Date().toISOString().split('T')[0];const sd=$('#inp-sdate');if(sd)sd.min=today;
   apiHealth();
 
