@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#0d0d1a">
+<!-- iOS Safari: allow mic/camera in web apps -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
 <title>NS Interview Prep — AI Mock Interviews</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1045,7 +1049,7 @@ select optgroup{background:#13131f;color:#7c3aed;font-weight:700}
 
   <!-- Self video — fixed bottom-left, tap to expand -->
   <div class="vid-prev hidden" id="vid-prev" onclick="toggleVideoSize()">
-    <video id="vid-self" autoplay muted playsinline></video>
+    <video id="vid-self" autoplay muted playsinline webkit-playsinline></video>
     <div class="vid-prev-badge">YOU</div>
     <div class="vid-prev-expand"><i class="fa-solid fa-expand" id="vid-expand-icon"></i></div>
   </div>

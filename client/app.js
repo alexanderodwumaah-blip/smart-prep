@@ -647,6 +647,7 @@ const stt = {
       this.rec = new SR();
       this.rec.continuous = true;
       this.rec.interimResults = true;
+      // en-US works on iOS Safari; en-GB sometimes fails
       this.rec.lang = 'en-US';
       this.wsOk = true;
     }
@@ -674,34 +675,57 @@ const stt = {
   _startWebSpeech() {
     if (!this.wsOk) return;
     let wsAccum = '';
-    this.rec.onresult = e => {
-      if (!S.isListening) return;
-      let sessionFinal = '', interim = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) { sessionFinal += t; }
-        else { interim += t; }
-      }
-      if (sessionFinal) {
-        wsAccum += ' ' + sessionFinal;
-        S.finalTxt = wsAccum.trim();
-        S.interimTxt = '';
-      } else if (interim) {
-        S.interimTxt = interim;
-      }
-      if (this._onResult) this._onResult(S.finalTxt, S.interimTxt);
-      this.silenceMs = 0;
-      this.speechDetected = true;
+
+    const makeRec = () => {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const r = new SR();
+      r.continuous = true;
+      r.interimResults = true;
+      r.lang = 'en-US';
+
+      r.onresult = e => {
+        if (!S.isListening) return;
+        let sessionFinal = '', interim = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const t = e.results[i][0].transcript;
+          if (e.results[i].isFinal) sessionFinal += t;
+          else interim += t;
+        }
+        if (sessionFinal) {
+          wsAccum += ' ' + sessionFinal;
+          S.finalTxt = wsAccum.trim();
+          S.interimTxt = '';
+        } else if (interim) {
+          S.interimTxt = interim;
+        }
+        if (this._onResult) this._onResult(S.finalTxt, S.interimTxt);
+        this.silenceMs = 0;
+        this.speechDetected = true;
+      };
+
+      r.onend = () => {
+        // iOS Safari terminates SpeechRecognition frequently — restart immediately
+        if (S.isListening) {
+          try {
+            this.rec = makeRec();
+            this.rec.start();
+          } catch (err) {
+            // Restart failed silently — VAD + MediaRecorder still handle the answer
+          }
+        }
+      };
+
+      r.onerror = e => {
+        if (e.error !== 'no-speech' && e.error !== 'aborted' && e.error !== 'network') {
+          console.warn('Web Speech error:', e.error);
+        }
+      };
+
+      return r;
     };
-    this.rec.onend = () => {
-      if (S.isListening) { try { this.rec.start(); } catch (e) {} }
-    };
-    this.rec.onerror = e => {
-      if (e.error !== 'no-speech' && e.error !== 'aborted') {
-        console.warn('Web Speech error:', e.error);
-      }
-    };
-    try { this.rec.start(); } catch (e) {}
+
+    this.rec = makeRec();
+    try { this.rec.start(); } catch (e) { console.warn('Web Speech start failed:', e.message); }
   },
 
   // ── MediaRecorder: capture raw audio for background Whisper upgrade ──────
@@ -1030,60 +1054,182 @@ function testSpeaker(){
     if(status)status.style.color='#ef4444';
   }
 }
-// ===== MEDIA — separate audio/video for iOS graceful degradation =====
-async function startMedia(){
-  // Step 1: Request audio (critical — must succeed for interview to work)
-  let audioStream=null;
-  try{
-    audioStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
-  }catch(ae){
-    console.warn('Mic denied:',ae.message);
-    $(`#vid-prev`).classList.add('hidden');$(`#rec-dot`).classList.add('hidden');$(`#rec-label`)?.classList.add('hidden');
+// ===== MEDIA — iOS-safe: getUserMedia called directly inside user gesture =====
+// On iOS Safari, getUserMedia MUST be called synchronously within a user gesture
+// handler. Any await before getUserMedia expires the gesture context and causes
+// "NotAllowedError: The request is not allowed by the user agent or the platform."
+//
+// Solution: call getUserMedia in the tap handler itself (startMediaFromGesture),
+// then store the stream. beginInterview() reuses it.
+
+async function startMediaFromGesture() {
+  // ── AUDIO — must happen first, inside the gesture ───────────────────────
+  try {
+    // iOS Safari: use simple constraints (no echoCancellation object — use boolean)
+    const audioConstraints = {
+      audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 44100 },
+      video: false,
+    };
+    const audioStream = await navigator.mediaDevices.getUserMedia(audioConstraints);
+    S.micStream = audioStream;
+
+    // AudioContext must also be created/resumed in the gesture on iOS
+    S.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    await S.audioCtx.resume();
+    S.analyser = S.audioCtx.createAnalyser();
+    S.analyser.fftSize = 256;
+    S.analyser.minDecibels = -90;
+    S.analyser.maxDecibels = -10;
+    S.analyser.smoothingTimeConstant = 0.6;
+    const micSource = S.audioCtx.createMediaStreamSource(audioStream);
+    micSource.connect(S.analyser);
+  } catch (ae) {
+    console.warn('Mic denied:', ae.name, ae.message);
+    // Show a clear iOS-specific instruction if NotAllowedError
+    if (ae.name === 'NotAllowedError' || ae.name === 'PermissionDeniedError') {
+      showMediaPermissionGuide('mic');
+    }
+    S.micStream = null;
     setPTTState('disabled');
-    $(`#d-st`).textContent='Mic unavailable — type your answers below';$(`#d-st`).style.color='#f59e0b';
-    toast('Mic access denied — type your answers instead.','err');
     return false;
   }
 
-  // Step 2: Set up audio analyser immediately (so visualizer AND VAD work)
-  S.audioCtx=new(window.AudioContext||window.webkitAudioContext)();
-  await S.audioCtx.resume(); // always force resume
-  S.analyser=S.audioCtx.createAnalyser();
-  S.analyser.fftSize=256;
-  S.analyser.minDecibels=-90;
-  S.analyser.maxDecibels=-10;
-  S.analyser.smoothingTimeConstant=0.6; // less smoothing = more responsive for VAD
-  const micSource = S.audioCtx.createMediaStreamSource(audioStream);
-  micSource.connect(S.analyser);
-  // Save the pure mic stream so stt recorder can use it independently
-  S.micStream = audioStream;
+  // ── CAMERA — optional, interview continues without it ───────────────────
+  try {
+    // iOS Safari: don't use width/height ideals — use just facingMode
+    const videoStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user' },
+      audio: false,
+    });
+    // Combine tracks
+    const combined = new MediaStream([
+      ...S.micStream.getAudioTracks(),
+      ...videoStream.getVideoTracks(),
+    ]);
+    S.vidStream = combined;
+    const vidEl = $('#vid-self');
+    if (vidEl) {
+      vidEl.srcObject = combined;
+      vidEl.setAttribute('autoplay', '');
+      vidEl.setAttribute('playsinline', ''); // critical for iOS
+      vidEl.setAttribute('muted', '');
+      vidEl.muted = true;
+      vidEl.play().catch(() => {});
+    }
+    $('#vid-prev')?.classList.remove('hidden');
+    $('#rec-dot')?.classList.remove('hidden');
+    $('#rec-label')?.classList.remove('hidden');
 
-  // Step 3: Request camera separately — if denied, interview continues audio-only
-  try{
-    const videoStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});
-    // Combine audio + video tracks into one stream
-    const combined=new MediaStream([...audioStream.getAudioTracks(),...videoStream.getVideoTracks()]);
-    S.vidStream=combined;
-    $(`#vid-self`).srcObject=combined;
-    $(`#vid-prev`).classList.remove('hidden');
-    $(`#rec-dot`).classList.remove('hidden');$(`#rec-label`)?.classList.remove('hidden');
-    // Start recording combined stream
-    S.vidChunks=[];
-    const mime=MediaRecorder.isTypeSupported('video/webm;codecs=vp9')?'video/webm;codecs=vp9':
-                MediaRecorder.isTypeSupported('video/webm')?'video/webm':'video/mp4';
-    try{
-      S.mediaRecorder=new MediaRecorder(combined,{mimeType:mime});
-      S.mediaRecorder.ondataavailable=e=>{if(e.data.size>0)S.vidChunks.push(e.data)};
-      S.mediaRecorder.start(1000);S.isRecording=true;
-    }catch(re){console.warn('Recorder failed, continuing without recording:',re.message)}
-  }catch(ve){
-    // Camera denied or not available — audio-only, still fully functional
-    console.warn('Camera unavailable, audio-only mode:',ve.message);
-    S.micStream=audioStream;
-    $(`#vid-prev`).classList.add('hidden');$(`#rec-dot`).classList.add('hidden');$(`#rec-label`)?.classList.add('hidden');
+    // Recording — iOS uses mp4, not webm
+    S.vidChunks = [];
+    const mime = MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4'
+               : MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9'
+               : MediaRecorder.isTypeSupported('video/webm') ? 'video/webm'
+               : '';
+    try {
+      S.mediaRecorder = new MediaRecorder(combined, mime ? { mimeType: mime } : {});
+      S.mediaRecorder.ondataavailable = e => { if (e.data.size > 0) S.vidChunks.push(e.data); };
+      S.mediaRecorder.start(1000);
+      S.isRecording = true;
+    } catch (re) {
+      console.warn('Video recorder failed, audio-only:', re.message);
+    }
+  } catch (ve) {
+    // Camera denied — fully ok, audio-only
+    console.info('Camera unavailable (audio-only):', ve.name);
+    $('#vid-prev')?.classList.add('hidden');
+    $('#rec-dot')?.classList.add('hidden');
+    $('#rec-label')?.classList.add('hidden');
   }
+
   return true;
 }
+
+// Show clear iOS permission recovery instructions
+function showMediaPermissionGuide(type) {
+  const overlay = $('#iv-start-overlay');
+  if (!overlay) return;
+  const icon = type === 'mic' ? 'fa-microphone-slash' : 'fa-video-slash';
+  const iosInstructions = `
+    <div class="text-center max-w-xs">
+      <div class="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-5" style="background:rgba(239,68,68,.2)">
+        <i class="fa-solid ${icon} text-red-400 text-3xl"></i>
+      </div>
+      <h2 class="text-xl font-black text-white mb-3">${type === 'mic' ? 'Microphone' : 'Camera'} Access Denied</h2>
+      <div class="rounded-xl p-4 mb-4 text-left space-y-2" style="background:rgba(19,19,31,.9);border:1px solid #2d2d4e">
+        <p class="text-xs font-bold text-amber-300 mb-2">To fix this on iPhone/iPad:</p>
+        <p class="text-xs text-slate-300">1. Open <strong class="text-white">Settings</strong> on your device</p>
+        <p class="text-xs text-slate-300">2. Scroll down to <strong class="text-white">Safari</strong> (or your browser)</p>
+        <p class="text-xs text-slate-300">3. Tap <strong class="text-white">Microphone</strong> → set to <strong class="text-emerald-400">Allow</strong></p>
+        <p class="text-xs text-slate-300">4. Come back and tap the button below</p>
+        <div class="mt-2 pt-2" style="border-top:1px solid #2d2d4e">
+          <p class="text-[11px] text-slate-500">Or in Safari: tap <strong class="text-white">aA</strong> in the address bar → Website Settings → Microphone → Allow</p>
+        </div>
+      </div>
+      <button onclick="retryMediaPermission()" class="w-full py-4 rounded-2xl text-base font-black text-white btn-glow" style="background:linear-gradient(135deg,#7c3aed,#06b6d4);box-shadow:0 8px 32px rgba(124,58,237,.4)">
+        <i class="fa-solid fa-rotate-right mr-2"></i>Try Again
+      </button>
+      <button onclick="proceedWithoutMic()" class="w-full mt-2 py-3 rounded-2xl text-sm font-semibold text-slate-400 transition" style="background:#1a1a2e;border:1px solid #2d2d4e">
+        Continue Without Mic (Type Only)
+      </button>
+    </div>`;
+  overlay.innerHTML = iosInstructions;
+  overlay.classList.remove('hidden');
+}
+
+function retryMediaPermission() {
+  // Restore the original overlay and let the user tap again
+  const overlay = $('#iv-start-overlay');
+  if (!overlay) return;
+  overlay.innerHTML = `
+    <div class="text-center max-w-xs">
+      <div class="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-5 btn-glow" style="background:linear-gradient(135deg,#7c3aed,#06b6d4)">
+        <i class="fa-solid fa-microphone text-white text-3xl"></i>
+      </div>
+      <h2 class="text-xl font-black text-white mb-2">Ready to Begin?</h2>
+      <p class="text-sm text-slate-400 mb-2 leading-relaxed">Tap below to allow microphone access and start the interview.</p>
+      <p class="text-xs text-slate-500 mb-6">Make sure you tapped <strong class="text-slate-300">Allow</strong> in your browser settings first.</p>
+      <button id="btn-iv-start" class="w-full py-4 rounded-2xl text-base font-black text-white btn-glow" style="background:linear-gradient(135deg,#7c3aed,#06b6d4);box-shadow:0 8px 32px rgba(124,58,237,.4)">
+        <i class="fa-solid fa-play mr-2"></i>Allow Mic & Start Interview
+      </button>
+      <p class="text-[10px] text-slate-600 mt-3">Camera is optional.</p>
+    </div>`;
+  const startBtn = $('#btn-iv-start');
+  if (startBtn) startBtn.onclick = () => _proceedFromOverlay();
+}
+
+function proceedWithoutMic() {
+  S.micStream = null;
+  S.analyser = null;
+  const overlay = $('#iv-start-overlay');
+  if (overlay) overlay.classList.add('hidden');
+  setPTTState('disabled');
+  beginInterview();
+}
+
+// The actual proceed handler — called from the overlay tap button
+async function _proceedFromOverlay() {
+  const overlay = $('#iv-start-overlay');
+  const startBtn = $('#btn-iv-start');
+  if (startBtn) { startBtn.disabled = true; startBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Starting...'; }
+
+  // getUserMedia runs HERE — inside the gesture handler — iOS requirement
+  const ok = await startMediaFromGesture();
+  if (!ok) return; // showMediaPermissionGuide already shown
+
+  if (overlay) overlay.classList.add('hidden');
+  beginInterview();
+}
+
+// Legacy startMedia() — kept for any edge-case calls, delegates to startMediaFromGesture
+async function startMedia() {
+  // If streams are already set up (from the gesture handler), reuse them
+  if (S.micStream) return true;
+  // Otherwise try to get access (will likely fail on iOS if not in gesture)
+  return startMediaFromGesture();
+}
+
+
 
 function drawVisualizer(){
   if(!S.analyser)return;
@@ -1766,19 +1912,30 @@ async function startInt(){
     const{data:sess}=await sb.from('interview_sessions').insert({user_id:S.user.id,field:S.field,field_label:S.fieldLabel,target_company:S.company||null,interviewer_mode:S.mode,total_questions:S.totalQ,status:'active'}).select('id').single();
     if(sess)S.currentSessionId=sess.id;
   }
-  // Show tap-to-start overlay (required for iOS Safari TTS + mic)
-  // On desktop, auto-dismiss after 800ms if no touch detected
+  // Show tap-to-start overlay — required on iOS Safari for mic permission
+  // getUserMedia runs inside the button tap handler (_proceedFromOverlay),
+  // which keeps it within the user gesture context iOS requires.
   const overlay=$('#iv-start-overlay');
   overlay.classList.remove('hidden');
+  // Reset overlay content to default (in case it was replaced by error guide)
+  overlay.innerHTML=`
+    <div class="text-center max-w-xs">
+      <div class="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-5 btn-glow" style="background:linear-gradient(135deg,#7c3aed,#06b6d4)">
+        <i class="fa-solid fa-microphone text-white text-3xl"></i>
+      </div>
+      <h2 class="text-xl font-black text-white mb-2">Ready to Begin?</h2>
+      <p class="text-sm text-slate-400 mb-2 leading-relaxed">Tap below to allow microphone access and start the interview.</p>
+      <p class="text-xs text-slate-500 mb-6">Your browser will ask for microphone permission — tap <strong class="text-slate-300">Allow</strong> when prompted.</p>
+      <button id="btn-iv-start" class="w-full py-4 rounded-2xl text-base font-black text-white btn-glow" style="background:linear-gradient(135deg,#7c3aed,#06b6d4);box-shadow:0 8px 32px rgba(124,58,237,.4)">
+        <i class="fa-solid fa-play mr-2"></i>Allow Mic & Start Interview
+      </button>
+      <p class="text-[10px] text-slate-600 mt-3">Camera is optional — you can grant or deny it separately.</p>
+    </div>`;
   const startBtn=$('#btn-iv-start');
-  const proceed=()=>{
-    overlay.classList.add('hidden');
-    beginInterview();
-  };
-  startBtn.onclick=proceed;
-  // Auto-proceed on desktop (non-touch) after short delay
+  if(startBtn)startBtn.onclick=()=>_proceedFromOverlay();
+  // On desktop (non-touch) auto-proceed after short delay
   const isTouch=navigator.maxTouchPoints>0||'ontouchstart' in window;
-  if(!isTouch)setTimeout(proceed,600);
+  if(!isTouch)setTimeout(()=>_proceedFromOverlay(),600);
 }
 
 async function beginInterview(){
@@ -1806,7 +1963,9 @@ async function beginInterview(){
   S.conversation.push({role:'ai',text:greeting,interviewer:S.currentIV.name});
   addMessage('ai',greeting,false);
   setPhase('speaking');
-  const mediaOk=await startMedia();
+  // Media (mic + camera) already initialised in _proceedFromOverlay (inside user gesture).
+  // startMedia() here is a no-op if streams are already set up.
+  await startMedia();
   await tts.speak(greeting,vc);
   // After greeting, go to listening phase so user can tap the mic button
   if(!S.ending)await startListening();
