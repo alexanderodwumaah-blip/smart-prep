@@ -596,47 +596,55 @@ select optgroup{background:#13131f;color:#7c3aed;font-weight:700}
       </div>
     </div>
 
-    <!-- Categories — multi-select checkboxes -->
+    <!-- Categories — custom toggle buttons instead of native checkboxes -->
     <div>
-      <label class="block text-[11px] font-bold text-slate-400 mb-2">🗂️ Categories <span class="text-slate-600 font-normal">(tick all that apply)</span></label>
-      <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5" id="mt-cats">
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="general" class="mt-cat-cb accent-violet-500"> <span class="text-xs text-slate-300">General Aptitude</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="technical" class="mt-cat-cb accent-violet-500"> <span class="text-xs text-slate-300">Technical</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="behavioral" class="mt-cat-cb accent-violet-500"> <span class="text-xs text-slate-300">Behavioral</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="logical" class="mt-cat-cb accent-violet-500"> <span class="text-xs text-slate-300">Logical Reasoning</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="numerical" class="mt-cat-cb accent-violet-500"> <span class="text-xs text-slate-300">Numerical Reasoning</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="verbal" class="mt-cat-cb accent-violet-500"> <span class="text-xs text-slate-300">Verbal Reasoning</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="analytical" class="mt-cat-cb accent-violet-500"> <span class="text-xs text-slate-300">Analytical Thinking</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="spatial" class="mt-cat-cb accent-violet-500"> <span class="text-xs text-slate-300">Spatial Reasoning</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="iq" class="mt-cat-cb accent-violet-500"> <span class="text-xs text-slate-300">IQ / Cognitive</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="interview_prep" class="mt-cat-cb accent-violet-500"> <span class="text-xs text-slate-300">Interview Prep</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="psychometric" class="mt-cat-cb accent-violet-500"> <span class="text-xs text-slate-300">Psychometric</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="situational" class="mt-cat-cb accent-violet-500"> <span class="text-xs text-slate-300">Situational Judgment</span></label>
+      <label class="block text-[11px] font-bold text-slate-400 mb-2">🗂️ Categories <span class="text-slate-600 font-normal">— tap to select multiple</span></label>
+      <div class="flex flex-wrap gap-2" id="mt-cats">
+        <button type="button" data-val="general" onclick="toggleCatBtn(this)" class="cat-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">General Aptitude</button>
+        <button type="button" data-val="technical" onclick="toggleCatBtn(this)" class="cat-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">Technical</button>
+        <button type="button" data-val="behavioral" onclick="toggleCatBtn(this)" class="cat-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">Behavioral</button>
+        <button type="button" data-val="logical" onclick="toggleCatBtn(this)" class="cat-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">Logical Reasoning</button>
+        <button type="button" data-val="numerical" onclick="toggleCatBtn(this)" class="cat-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">Numerical Reasoning</button>
+        <button type="button" data-val="verbal" onclick="toggleCatBtn(this)" class="cat-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">Verbal Reasoning</button>
+        <button type="button" data-val="analytical" onclick="toggleCatBtn(this)" class="cat-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">Analytical Thinking</button>
+        <button type="button" data-val="spatial" onclick="toggleCatBtn(this)" class="cat-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">Spatial Reasoning</button>
+        <button type="button" data-val="iq" onclick="toggleCatBtn(this)" class="cat-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">IQ / Cognitive</button>
+        <button type="button" data-val="interview_prep" onclick="toggleCatBtn(this)" class="cat-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">Interview Prep</button>
+        <button type="button" data-val="psychometric" onclick="toggleCatBtn(this)" class="cat-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">Psychometric</button>
+        <button type="button" data-val="situational" onclick="toggleCatBtn(this)" class="cat-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">Situational Judgment</button>
       </div>
+      <p class="text-[10px] text-slate-600 mt-1.5" id="mt-cats-hint">None selected — tap to select above.</p>
     </div>
 
-    <!-- Fields — full 40+ list as checkboxes -->
+    <!-- Applicable Fields — toggle buttons, larger, outside cramped grid -->
     <div>
-      <label class="block text-[11px] font-bold text-slate-400 mb-2">🎓 Applicable Fields <span class="text-slate-600 font-normal">(leave all unchecked = all fields)</span></label>
-      <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5" id="mt-fields">
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="electrical" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Electrical &amp; Electronic</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="computer" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Computer / IT</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="mechanical" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Mechanical</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="civil" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Civil / Structural</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="mining" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Mining / Geological</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="chemical" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Chemical</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="petroleum" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Petroleum</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="agricultural" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Agricultural</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="biomedical" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Biomedical</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="geomatic" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Geomatic / Survey</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="materials" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Materials / Metallurgy</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="aerospace" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Aerospace / Marine</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="health" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Health Sciences</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="business" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Business / Management</span></label>
-        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="safety" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Fire Safety / HSE</span></label>
+      <label class="block text-[11px] font-bold text-slate-400 mb-2">🎓 Applicable Fields <span class="text-slate-600 font-normal">— tap fields this test covers (leave none = all fields)</span></label>
+      <div class="flex flex-wrap gap-2" id="mt-fields">
+        <button type="button" data-val="electrical" onclick="toggleFieldBtn(this)" class="field-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">⚡ Electrical &amp; Electronic</button>
+        <button type="button" data-val="computer" onclick="toggleFieldBtn(this)" class="field-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">💻 Computer / IT</button>
+        <button type="button" data-val="mechanical" onclick="toggleFieldBtn(this)" class="field-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">⚙️ Mechanical</button>
+        <button type="button" data-val="civil" onclick="toggleFieldBtn(this)" class="field-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">🏗️ Civil / Structural</button>
+        <button type="button" data-val="mining" onclick="toggleFieldBtn(this)" class="field-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">⛏️ Mining / Geological</button>
+        <button type="button" data-val="chemical" onclick="toggleFieldBtn(this)" class="field-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">🧪 Chemical</button>
+        <button type="button" data-val="petroleum" onclick="toggleFieldBtn(this)" class="field-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">🛢️ Petroleum</button>
+        <button type="button" data-val="agricultural" onclick="toggleFieldBtn(this)" class="field-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">🌾 Agricultural</button>
+        <button type="button" data-val="biomedical" onclick="toggleFieldBtn(this)" class="field-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">🩺 Biomedical</button>
+        <button type="button" data-val="geomatic" onclick="toggleFieldBtn(this)" class="field-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">🗺️ Geomatic / Survey</button>
+        <button type="button" data-val="materials" onclick="toggleFieldBtn(this)" class="field-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">⚗️ Materials</button>
+        <button type="button" data-val="aerospace" onclick="toggleFieldBtn(this)" class="field-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">✈️ Aerospace / Marine</button>
+        <button type="button" data-val="health" onclick="toggleFieldBtn(this)" class="field-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">🏥 Health Sciences</button>
+        <button type="button" data-val="business" onclick="toggleFieldBtn(this)" class="field-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">📊 Business / Mgmt</button>
+        <button type="button" data-val="safety" onclick="toggleFieldBtn(this)" class="field-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" style="background:#1a1a2e;border:1px solid #2d2d4e;color:#6b7280">🦺 Fire Safety / HSE</button>
       </div>
-      <button type="button" onclick="selectAllFields()" class="mt-2 text-[10px] text-cyan-400 hover:text-cyan-300 transition">Select All Fields</button>
-      <button type="button" onclick="clearAllFields()" class="mt-2 ml-3 text-[10px] text-slate-500 hover:text-slate-300 transition">Clear All</button>
+      <!-- Other field — free text -->
+      <div class="mt-2.5 flex gap-2 items-center">
+        <span class="text-[11px] text-slate-500 shrink-0">Other field:</span>
+        <input type="text" id="mt-field-other" placeholder="e.g. Marine Engineering, Renewable Energy..." class="flex-1 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e">
+      </div>
+      <div class="flex gap-3 mt-1.5">
+        <button type="button" onclick="selectAllFieldBtns()" class="text-[10px] text-cyan-400 hover:text-cyan-300 transition">✓ Select All</button>
+        <button type="button" onclick="clearAllFieldBtns()" class="text-[10px] text-slate-500 hover:text-slate-300 transition">✕ Clear All</button>
+      </div>
     </div>
 
     <button onclick="addTest()" class="w-full py-3 rounded-xl text-sm font-bold text-white btn-glow" style="background:linear-gradient(135deg,#7c3aed,#06b6d4);box-shadow:0 4px 16px rgba(124,58,237,.3)">

@@ -911,8 +911,36 @@ async function loadAdminReplies(){
 }
 
 // ===== MANAGE TESTS =====
-function selectAllFields(){$$('.mt-field-cb').forEach(cb=>cb.checked=true)}
-function clearAllFields(){$$('.mt-field-cb').forEach(cb=>cb.checked=false)}
+// Toggle button selection (purple when active)
+function toggleCatBtn(btn){
+  const active=btn.dataset.active==='1';
+  btn.dataset.active=active?'':'1';
+  btn.style.background=active?'#1a1a2e':'rgba(124,58,237,.2)';
+  btn.style.borderColor=active?'#2d2d4e':'#7c3aed';
+  btn.style.color=active?'#6b7280':'#a78bfa';
+  // Update hint
+  const hint=$('#mt-cats-hint');
+  const sel=Array.from($$('#mt-cats .cat-btn[data-active="1"]')).map(b=>b.dataset.val);
+  if(hint)hint.textContent=sel.length?`✓ ${sel.join(', ')}`:'None selected — tap to select';
+}
+function toggleFieldBtn(btn){
+  const active=btn.dataset.active==='1';
+  btn.dataset.active=active?'':'1';
+  btn.style.background=active?'#1a1a2e':'rgba(6,182,212,.15)';
+  btn.style.borderColor=active?'#2d2d4e':'#06b6d4';
+  btn.style.color=active?'#6b7280':'#67e8f9';
+}
+function selectAllFieldBtns(){
+  $$('#mt-fields .field-btn').forEach(b=>{b.dataset.active='1';b.style.background='rgba(6,182,212,.15)';b.style.borderColor='#06b6d4';b.style.color='#67e8f9'});
+}
+function selectAllFields(){selectAllFieldBtns()}
+function clearAllFields(){
+  $$('#mt-fields .field-btn').forEach(b=>{b.dataset.active='';b.style.background='#1a1a2e';b.style.borderColor='#2d2d4e';b.style.color='#6b7280'});
+  const fo=$('#mt-field-other');if(fo)fo.value='';
+}
+// Legacy aliases
+function toggleCat(btn){toggleCatBtn(btn)}
+function toggleField(btn){toggleFieldBtn(btn)}
 
 async function loadMgmt(){
   if(!S.user)return;
@@ -957,12 +985,14 @@ async function addTest(){
   if(!t){toast('Test title is required.','err');return}
   if(!u){toast('Test URL is required.','err');return}
 
-  // Collect checked categories
-  const categories=Array.from($$('.mt-cat-cb:checked')).map(cb=>cb.value);
+  // Read selected category toggle buttons
+  const categories=Array.from($$('#mt-cats .cat-btn[data-active="1"]')).map(b=>b.dataset.val);
   if(!categories.length){toast('Please select at least one category.','err');return}
 
-  // Collect checked fields (empty = all fields)
-  const fields=Array.from($$('.mt-field-cb:checked')).map(cb=>cb.value);
+  // Read selected field toggle buttons + free-text other
+  const fields=Array.from($$('#mt-fields .field-btn[data-active="1"]')).map(b=>b.dataset.val);
+  const otherField=$('#mt-field-other')?.value.trim();
+  if(otherField)fields.push(otherField);
 
   const duration=$('#mt-duration')?.value;
   const difficulty=$('#mt-difficulty')?.value||'medium';
@@ -970,9 +1000,9 @@ async function addTest(){
 
   const{error}=await sb.from('aptitude_tests').insert({
     title:t,url:u,
-    category:categories[0], // backward compat — first category
+    category:categories[0], // backward compat
     categories,
-    field:fields[0]||null,  // backward compat
+    field:fields[0]||null,   // backward compat
     fields,
     description:desc||null,
     duration_minutes:duration?parseInt(duration):null,
@@ -982,11 +1012,15 @@ async function addTest(){
   if(error){toast('Error: '+error.message,'err');return}
 
   // Reset form
-  $(`#mt-title`).value='';$(`#mt-url`).value='';$(`#mt-desc`).value='';
-  $(`#mt-duration`).value='';$(`#mt-difficulty`).value='medium';
-  $$('.mt-cat-cb').forEach(cb=>cb.checked=false);
-  $$('.mt-field-cb').forEach(cb=>cb.checked=false);
-  toast('Test added!','ok');
+  $(`#mt-title`).value='';$(`#mt-url`).value='';
+  $(`#mt-desc`).value='';$(`#mt-duration`).value='';
+  $(`#mt-difficulty`).value='medium';
+  if($('#mt-field-other'))$('#mt-field-other').value='';
+  // Reset toggle buttons
+  $$('#mt-cats .cat-btn').forEach(b=>{b.dataset.active='';b.style.background='#1a1a2e';b.style.borderColor='#2d2d4e';b.style.color='#6b7280'});
+  clearAllFields();
+  const hint=$('#mt-cats-hint');if(hint)hint.textContent='None selected — tap to select';
+  toast('Test added successfully!','ok');
   loadMgmt();
 }
 async function toggleTest(id,active){await sb.from('aptitude_tests').update({is_active:active}).eq('id',id);toast(active?'Activated':'Deactivated','ok');loadMgmt()}
