@@ -557,22 +557,93 @@ select optgroup{background:#13131f;color:#7c3aed;font-weight:700}
 <div id="s-mgmt" class="scr flex-col pt-12 px-4 py-5 pb-safe">
 <div class="max-w-3xl mx-auto w-full space-y-4">
   <div>
-    <h1 class="text-xl font-black grad-text">Manage Tests</h1>
-    <p class="text-slate-500 text-xs mt-0.5">Add Google Forms, TestMoz, or any test links</p>
+    <h1 class="text-xl font-black grad-text">Manage Aptitude Tests</h1>
+    <p class="text-slate-500 text-xs mt-0.5">Add Google Forms, TestMoz, or any test link for students</p>
   </div>
-  <div class="rounded-xl p-4 space-y-3" style="background:#13131f;border:1px solid #2d2d4e">
-    <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Add New Test</h3>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-      <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Title</label><input type="text" id="mt-title" placeholder="General Aptitude Test" class="w-full rounded-xl px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e"></div>
-      <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Category</label><select id="mt-cat" class="w-full rounded-xl px-3 py-2 text-sm text-white focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e"><option value="general">General</option><option value="technical">Technical</option><option value="behavioral">Behavioral</option><option value="logical">Logical Reasoning</option></select></div>
+  <div class="rounded-xl p-4 space-y-4" style="background:#13131f;border:1px solid #2d2d4e">
+    <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">➕ Add New Test</h3>
+
+    <!-- Title + URL -->
+    <div class="grid grid-cols-1 gap-2.5">
+      <div>
+        <label class="block text-[11px] font-bold text-slate-400 mb-1.5">Test Title *</label>
+        <input type="text" id="mt-title" placeholder="e.g. General Aptitude Test — KNUST 2025" class="w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e">
+      </div>
+      <div>
+        <label class="block text-[11px] font-bold text-slate-400 mb-1.5">Test URL * <span class="text-slate-600 font-normal">(Google Forms, TestMoz, etc.)</span></label>
+        <input type="url" id="mt-url" placeholder="https://forms.gle/... or https://testmoz.com/..." class="w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e">
+      </div>
+      <div>
+        <label class="block text-[11px] font-bold text-slate-400 mb-1.5">Description <span class="text-slate-600 font-normal">(optional)</span></label>
+        <input type="text" id="mt-desc" placeholder="Brief description of what the test covers" class="w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e">
+      </div>
     </div>
-    <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Test URL</label><input type="url" id="mt-url" placeholder="https://forms.gle/..." class="w-full rounded-xl px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e"></div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-      <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Field</label><select id="mt-field" class="w-full rounded-xl px-3 py-2 text-sm text-white focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e"><option value="">All Fields</option><option value="electrical">Electrical &amp; Electronic</option><option value="computer">Computer / IT</option><option value="mechanical">Mechanical</option><option value="civil">Civil</option><option value="mining">Mining</option><option value="chemical">Chemical</option><option value="petroleum">Petroleum</option><option value="agricultural">Agricultural</option><option value="biomedical">Biomedical</option><option value="geomatic">Geomatic</option><option value="materials">Materials</option><option value="aerospace">Aerospace</option></select></div>
-      <div><label class="block text-[11px] font-semibold text-slate-500 mb-1">Description</label><input type="text" id="mt-desc" placeholder="Brief description" class="w-full rounded-xl px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e"></div>
+
+    <!-- Duration + Difficulty -->
+    <div class="grid grid-cols-2 gap-2.5">
+      <div>
+        <label class="block text-[11px] font-bold text-slate-400 mb-1.5">⏱️ Duration <span class="text-slate-600 font-normal">(minutes)</span></label>
+        <input type="number" id="mt-duration" placeholder="e.g. 30" min="1" max="300" class="w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e">
+      </div>
+      <div>
+        <label class="block text-[11px] font-bold text-slate-400 mb-1.5">📊 Difficulty</label>
+        <select id="mt-difficulty" class="w-full rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e">
+          <option value="easy">Easy — Basic concepts</option>
+          <option value="medium" selected>Medium — Standard level</option>
+          <option value="hard">Hard — Advanced</option>
+          <option value="mixed">Mixed — All levels</option>
+        </select>
+      </div>
     </div>
-    <button onclick="addTest()" class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white transition btn-glow" style="background:linear-gradient(135deg,#7c3aed,#06b6d4)"><i class="fa-solid fa-plus"></i>Add Test</button>
+
+    <!-- Categories — multi-select checkboxes -->
+    <div>
+      <label class="block text-[11px] font-bold text-slate-400 mb-2">🗂️ Categories <span class="text-slate-600 font-normal">(tick all that apply)</span></label>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5" id="mt-cats">
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="general" class="mt-cat-cb accent-violet-500"> <span class="text-xs text-slate-300">General Aptitude</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="technical" class="mt-cat-cb accent-violet-500"> <span class="text-xs text-slate-300">Technical</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="behavioral" class="mt-cat-cb accent-violet-500"> <span class="text-xs text-slate-300">Behavioral</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="logical" class="mt-cat-cb accent-violet-500"> <span class="text-xs text-slate-300">Logical Reasoning</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="numerical" class="mt-cat-cb accent-violet-500"> <span class="text-xs text-slate-300">Numerical Reasoning</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="verbal" class="mt-cat-cb accent-violet-500"> <span class="text-xs text-slate-300">Verbal Reasoning</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="analytical" class="mt-cat-cb accent-violet-500"> <span class="text-xs text-slate-300">Analytical Thinking</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="spatial" class="mt-cat-cb accent-violet-500"> <span class="text-xs text-slate-300">Spatial Reasoning</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="iq" class="mt-cat-cb accent-violet-500"> <span class="text-xs text-slate-300">IQ / Cognitive</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="interview_prep" class="mt-cat-cb accent-violet-500"> <span class="text-xs text-slate-300">Interview Prep</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="psychometric" class="mt-cat-cb accent-violet-500"> <span class="text-xs text-slate-300">Psychometric</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="situational" class="mt-cat-cb accent-violet-500"> <span class="text-xs text-slate-300">Situational Judgment</span></label>
+      </div>
+    </div>
+
+    <!-- Fields — full 40+ list as checkboxes -->
+    <div>
+      <label class="block text-[11px] font-bold text-slate-400 mb-2">🎓 Applicable Fields <span class="text-slate-600 font-normal">(leave all unchecked = all fields)</span></label>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5" id="mt-fields">
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="electrical" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Electrical &amp; Electronic</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="computer" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Computer / IT</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="mechanical" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Mechanical</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="civil" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Civil / Structural</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="mining" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Mining / Geological</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="chemical" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Chemical</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="petroleum" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Petroleum</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="agricultural" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Agricultural</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="biomedical" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Biomedical</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="geomatic" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Geomatic / Survey</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="materials" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Materials / Metallurgy</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="aerospace" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Aerospace / Marine</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="health" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Health Sciences</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="business" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Business / Management</span></label>
+        <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition hover:bg-slate-800/40" style="border:1px solid #2d2d4e"><input type="checkbox" value="safety" class="mt-field-cb accent-cyan-500"> <span class="text-[11px] text-slate-300">Fire Safety / HSE</span></label>
+      </div>
+      <button type="button" onclick="selectAllFields()" class="mt-2 text-[10px] text-cyan-400 hover:text-cyan-300 transition">Select All Fields</button>
+      <button type="button" onclick="clearAllFields()" class="mt-2 ml-3 text-[10px] text-slate-500 hover:text-slate-300 transition">Clear All</button>
+    </div>
+
+    <button onclick="addTest()" class="w-full py-3 rounded-xl text-sm font-bold text-white btn-glow" style="background:linear-gradient(135deg,#7c3aed,#06b6d4);box-shadow:0 4px 16px rgba(124,58,237,.3)">
+      <i class="fa-solid fa-plus mr-1.5"></i>Add Test
+    </button>
   </div>
+
   <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider">All Tests</h2>
   <div class="rounded-xl overflow-hidden" style="background:#13131f;border:1px solid #2d2d4e" id="mgmt-list"><div class="p-4 text-center text-xs text-slate-600">Loading...</div></div>
 </div>

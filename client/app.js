@@ -801,10 +801,30 @@ async function loadTests(){
     const{data:comps}=await sb.from('aptitude_completions').select('test_id').eq('user_id',S.user.id);
     const done=new Set((comps||[]).map(c=>c.test_id));
     if(!tests?.length){el.innerHTML='<div class="p-5 text-center text-xs text-slate-600">No tests available yet.</div>';return}
-    el.innerHTML='';const cc={general:'#3b82f6',technical:'#e8a023',behavioral:'#8b5cf6',logical:'#22c55e'};
+    el.innerHTML='';
+    const catColors={general:'#3b82f6',technical:'#e8a023',behavioral:'#8b5cf6',logical:'#22c55e',numerical:'#06b6d4',verbal:'#ec4899',analytical:'#f59e0b',spatial:'#10b981',iq:'#8b5cf6',interview_prep:'#7c3aed',psychometric:'#06b6d4',situational:'#f59e0b'};
     tests.forEach(t=>{
       const d=done.has(t.id);const row=document.createElement('div');row.className='tr';
-      row.innerHTML=`<div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background:${cc[t.category]||'#888'}22;color:${cc[t.category]||'#888'}"><i class="fa-solid ${t.category==='technical'?'fa-code':t.category==='behavioral'?'fa-users':t.category==='logical'?'fa-brain':'fa-clipboard'} text-xs"></i></div><div class="flex-1 min-w-0"><div class="text-xs font-medium">${esc(t.title)}</div><div class="text-[10px] text-slate-500 truncate">${esc(t.description||t.category+' test')}${t.field?' · '+FL[t.field]:''}</div></div>${d?'<span class="text-[10px] text-ok font-medium"><i class="fa-solid fa-check mr-0.5"></i>Done</span>':`<a href="${esc(t.url)}" target="_blank" rel="noopener" class="px-2.5 py-1 rounded-lg text-[10px] font-semibold transition shrink-0" style="background:rgba(124,58,237,.15);color:#a78bfa" data-tid="${t.id}">Take Test <i class="fa-solid fa-arrow-right ml-0.5"></i></a>`}`;
+      const cats=(t.categories||[t.category]).filter(Boolean);
+      const primaryCat=cats[0]||'general';
+      const catColor=catColors[primaryCat]||'#888';
+      const dur=t.duration_minutes?`<span class="text-[9px] text-slate-500 shrink-0">⏱️ ${t.duration_minutes}m</span>`:'';
+      row.innerHTML=`
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background:${catColor}22;color:${catColor}">
+          <i class="fa-solid ${primaryCat==='technical'?'fa-code':primaryCat==='behavioral'?'fa-users':primaryCat==='logical'||primaryCat==='analytical'?'fa-brain':primaryCat==='numerical'?'fa-calculator':primaryCat==='verbal'?'fa-comments':primaryCat==='spatial'?'fa-shapes':'fa-clipboard'} text-xs"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="text-xs font-semibold text-slate-200 truncate">${esc(t.title)}</div>
+          <div class="flex flex-wrap items-center gap-1 mt-0.5">
+            ${cats.slice(0,2).map(c=>`<span class="text-[9px] px-1 py-0.5 rounded font-medium" style="background:${catColors[c]||'#888'}22;color:${catColors[c]||'#888'}">${c}</span>`).join('')}
+            ${dur}
+            ${t.description?`<span class="text-[9px] text-slate-500 truncate max-w-[120px]">${esc(t.description)}</span>`:''}
+          </div>
+        </div>
+        ${d
+          ?'<span class="text-[10px] text-emerald-400 font-bold shrink-0"><i class="fa-solid fa-check mr-0.5"></i>Done</span>'
+          :`<a href="${esc(t.url)}" target="_blank" rel="noopener" class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition shrink-0 btn-glow" style="background:linear-gradient(135deg,#7c3aed,#06b6d4);color:#fff" data-tid="${t.id}">Take Test</a>`
+        }`;
       row.querySelectorAll('a[data-tid]').forEach(a=>a.addEventListener('click',async()=>{await sb.from('aptitude_completions').upsert({user_id:S.user.id,test_id:a.dataset.tid},{onConflict:'user_id,test_id'})}));
       el.appendChild(row);
     });
@@ -891,21 +911,83 @@ async function loadAdminReplies(){
 }
 
 // ===== MANAGE TESTS =====
+function selectAllFields(){$$('.mt-field-cb').forEach(cb=>cb.checked=true)}
+function clearAllFields(){$$('.mt-field-cb').forEach(cb=>cb.checked=false)}
+
 async function loadMgmt(){
   if(!S.user)return;
   const{data:tests}=await sb.from('aptitude_tests').select('*').order('created_at',{ascending:false});
   const el=$('#mgmt-list');el.innerHTML='';
-  if(!tests?.length){el.innerHTML='<div class="p-4 text-center text-xs text-mut">No tests.</div>';return}
-  tests.forEach(t=>{const row=document.createElement('div');row.className='tr';row.innerHTML=`<div class="flex-1 min-w-0"><div class="text-xs font-medium">${esc(t.title)}</div><div class="text-[10px] text-mut">${t.category}${t.field?' · '+FL[t.field]:''}</div></div><div class="flex gap-1.5 shrink-0"><button class="text-[10px] px-2 py-1 rounded ${t.is_active?'bg-ok/20 text-ok':'bg-mut/20 text-mut'}" onclick="toggleTest('${t.id}',${!t.is_active})">${t.is_active?'Active':'Off'}</button><button class="text-[10px] px-2 py-1 rounded bg-err/20 text-err hover:bg-err/30" onclick="deleteTest('${t.id}')"><i class="fa-solid fa-trash"></i></button></div>`;el.appendChild(row)});
+  if(!tests?.length){el.innerHTML='<div class="p-4 text-center text-xs text-slate-600">No tests yet.</div>';return}
+  tests.forEach(t=>{
+    const cats=(t.categories||[t.category]).filter(Boolean);
+    const fields=(t.fields||[t.field]).filter(Boolean);
+    const dur=t.duration_minutes?`${t.duration_minutes} min`:'—';
+    const diff=t.difficulty||'medium';
+    const diffColor={easy:'#10b981',medium:'#f59e0b',hard:'#ef4444',mixed:'#8b5cf6'}[diff]||'#6b7280';
+    const row=document.createElement('div');row.className='p-3';row.style.borderBottom='1px solid #1a1a2e';
+    row.innerHTML=`
+      <div class="flex items-start gap-3">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap mb-1">
+            <span class="text-xs font-semibold text-slate-200">${esc(t.title)}</span>
+            <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style="background:${diffColor}22;color:${diffColor}">${diff}</span>
+            ${t.duration_minutes?`<span class="text-[9px] text-slate-500">⏱️ ${dur}</span>`:''}
+          </div>
+          <div class="flex flex-wrap gap-1 mb-1">
+            ${cats.map(c=>`<span class="text-[9px] px-1.5 py-0.5 rounded-full font-semibold" style="background:rgba(124,58,237,.15);color:#a78bfa">${c}</span>`).join('')}
+          </div>
+          <div class="flex flex-wrap gap-1">
+            ${fields.length?fields.map(f=>`<span class="text-[9px] px-1.5 py-0.5 rounded-full" style="background:rgba(6,182,212,.12);color:#67e8f9">${FL[f]||f}</span>`).join(''):'<span class="text-[9px] text-slate-600">All fields</span>'}
+          </div>
+        </div>
+        <div class="flex gap-1.5 shrink-0">
+          <button class="text-[10px] px-2 py-1.5 rounded-lg font-semibold transition ${t.is_active?'':'opacity-50'}" style="background:${t.is_active?'rgba(16,185,129,.15)':'rgba(107,114,128,.15)'};color:${t.is_active?'#10b981':'#6b7280'};border:1px solid ${t.is_active?'rgba(16,185,129,.25)':'rgba(107,114,128,.2)'}" onclick="toggleTest('${t.id}',${!t.is_active})">${t.is_active?'Active':'Off'}</button>
+          <button class="text-[10px] px-2 py-1.5 rounded-lg font-semibold transition" style="background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.2)" onclick="deleteTest('${t.id}')"><i class="fa-solid fa-trash text-[9px]"></i></button>
+        </div>
+      </div>`;
+    el.appendChild(row);
+  });
 }
+
 async function addTest(){
   if(!S.user)return;
-  const t=$('#mt-title')?.value.trim(),u=$('#mt-url')?.value.trim(),c=$('#mt-cat')?.value,f=$('#mt-field')?.value||null,d=$('#mt-desc')?.value.trim();
-  if(!t||!u){toast('Title and URL required.','err');return}
-  const{error}=await sb.from('aptitude_tests').insert({title:t,url:u,category:c,field:f,description:d,created_by:S.user.id});
+  const t=$('#mt-title')?.value.trim();
+  const u=$('#mt-url')?.value.trim();
+  if(!t){toast('Test title is required.','err');return}
+  if(!u){toast('Test URL is required.','err');return}
+
+  // Collect checked categories
+  const categories=Array.from($$('.mt-cat-cb:checked')).map(cb=>cb.value);
+  if(!categories.length){toast('Please select at least one category.','err');return}
+
+  // Collect checked fields (empty = all fields)
+  const fields=Array.from($$('.mt-field-cb:checked')).map(cb=>cb.value);
+
+  const duration=$('#mt-duration')?.value;
+  const difficulty=$('#mt-difficulty')?.value||'medium';
+  const desc=$('#mt-desc')?.value.trim();
+
+  const{error}=await sb.from('aptitude_tests').insert({
+    title:t,url:u,
+    category:categories[0], // backward compat — first category
+    categories,
+    field:fields[0]||null,  // backward compat
+    fields,
+    description:desc||null,
+    duration_minutes:duration?parseInt(duration):null,
+    difficulty,
+    created_by:S.user.id
+  });
   if(error){toast('Error: '+error.message,'err');return}
+
+  // Reset form
   $(`#mt-title`).value='';$(`#mt-url`).value='';$(`#mt-desc`).value='';
-  toast('Test added!','ok');loadMgmt();
+  $(`#mt-duration`).value='';$(`#mt-difficulty`).value='medium';
+  $$('.mt-cat-cb').forEach(cb=>cb.checked=false);
+  $$('.mt-field-cb').forEach(cb=>cb.checked=false);
+  toast('Test added!','ok');
+  loadMgmt();
 }
 async function toggleTest(id,active){await sb.from('aptitude_tests').update({is_active:active}).eq('id',id);toast(active?'Activated':'Deactivated','ok');loadMgmt()}
 async function deleteTest(id){if(!confirm('Delete this test?'))return;await sb.from('aptitude_tests').delete().eq('id',id);toast('Deleted.','ok');loadMgmt()}

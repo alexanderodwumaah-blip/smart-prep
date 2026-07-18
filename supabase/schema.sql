@@ -312,3 +312,10 @@ alter table public.profiles add column if not exists has_internship boolean defa
 --   https://smart-prep.vercel.app
 -- (or whatever your actual Vercel deployment URL is)
 -- This allows the "Forgot Password" reset link to redirect back to your app.
+
+-- ── 12. APTITUDE TESTS — new columns for richer test management ──────────────
+alter table public.aptitude_tests add column if not exists categories text[] default '{}';
+alter table public.aptitude_tests add column if not exists fields text[] default '{}';
+alter table public.aptitude_tests add column if not exists duration_minutes int;
+alter table public.aptitude_tests add column if not exists difficulty text default 'medium';
+-- Note: 'category' (singular) remains for backward compat; 'categories' (array) is new
