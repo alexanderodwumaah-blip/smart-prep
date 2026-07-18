@@ -296,6 +296,9 @@ function showScreen(n){
   const nv=$('#navbar');
   nv.classList.toggle('hidden',['auth','interview','results'].includes(n));
   if(!['auth','interview','results'].includes(n))buildNav();
+  // Show developer footer on all screens except interview (too cramped)
+  const df=$('#dev-footer');
+  if(df)df.classList.toggle('hidden',n==='interview');
 }
 function buildNav(){
   const nl=$('#nav-links');nl.innerHTML='';
