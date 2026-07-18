@@ -666,58 +666,69 @@ function animN(el,f,t,dur){const st=performance.now();function u(n){const p=Math
 // ===== APTITUDE TESTS =====
 async function loadTests(){
   if(!S.user)return;
-  const{data:tests}=await sb.from('aptitude_tests').select('*').eq('is_active',true).order('created_at',{ascending:false});
-  const{data:comps}=await sb.from('aptitude_completions').select('test_id').eq('user_id',S.user.id);
-  const done=new Set((comps||[]).map(c=>c.test_id));
   const el=$('#tests-list');
-  if(!tests?.length){el.innerHTML='<div class="p-5 text-center text-xs text-mut">No tests available yet.</div>';return}
-  el.innerHTML='';const cc={general:'#3b82f6',technical:'#e8a023',behavioral:'#8b5cf6',logical:'#22c55e'};
-  tests.forEach(t=>{
-    const d=done.has(t.id);const row=document.createElement('div');row.className='tr';
-    row.innerHTML=`<div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background:${cc[t.category]||'#888'}22;color:${cc[t.category]||'#888'}"><i class="fa-solid ${t.category==='technical'?'fa-code':t.category==='behavioral'?'fa-users':t.category==='logical'?'fa-brain':'fa-clipboard'} text-xs"></i></div><div class="flex-1 min-w-0"><div class="text-xs font-medium">${esc(t.title)}</div><div class="text-[10px] text-mut truncate">${esc(t.description||t.category+' test')}${t.field?' · '+FL[t.field]:''}</div></div>${d?'<span class="text-[10px] text-ok font-medium"><i class="fa-solid fa-check mr-0.5"></i>Done</span>':`<a href="${esc(t.url)}" target="_blank" rel="noopener" class="bg-acc/20 text-acc font-medium px-2.5 py-1 rounded-lg text-[10px] hover:bg-acc/30 transition shrink-0" data-tid="${t.id}">Take Test <i class="fa-solid fa-arrow-right ml-0.5"></i></a>`}`;
-    row.querySelectorAll('a[data-tid]').forEach(a=>a.addEventListener('click',async()=>{await sb.from('aptitude_completions').upsert({user_id:S.user.id,test_id:a.dataset.tid},{onConflict:'user_id,test_id'})}));
-    el.appendChild(row);
-  });
+  try{
+    const{data:tests}=await sb.from('aptitude_tests').select('*').eq('is_active',true).order('created_at',{ascending:false});
+    const{data:comps}=await sb.from('aptitude_completions').select('test_id').eq('user_id',S.user.id);
+    const done=new Set((comps||[]).map(c=>c.test_id));
+    if(!tests?.length){el.innerHTML='<div class="p-5 text-center text-xs text-slate-600">No tests available yet.</div>';return}
+    el.innerHTML='';const cc={general:'#3b82f6',technical:'#e8a023',behavioral:'#8b5cf6',logical:'#22c55e'};
+    tests.forEach(t=>{
+      const d=done.has(t.id);const row=document.createElement('div');row.className='tr';
+      row.innerHTML=`<div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background:${cc[t.category]||'#888'}22;color:${cc[t.category]||'#888'}"><i class="fa-solid ${t.category==='technical'?'fa-code':t.category==='behavioral'?'fa-users':t.category==='logical'?'fa-brain':'fa-clipboard'} text-xs"></i></div><div class="flex-1 min-w-0"><div class="text-xs font-medium">${esc(t.title)}</div><div class="text-[10px] text-slate-500 truncate">${esc(t.description||t.category+' test')}${t.field?' · '+FL[t.field]:''}</div></div>${d?'<span class="text-[10px] text-ok font-medium"><i class="fa-solid fa-check mr-0.5"></i>Done</span>':`<a href="${esc(t.url)}" target="_blank" rel="noopener" class="px-2.5 py-1 rounded-lg text-[10px] font-semibold transition shrink-0" style="background:rgba(124,58,237,.15);color:#a78bfa" data-tid="${t.id}">Take Test <i class="fa-solid fa-arrow-right ml-0.5"></i></a>`}`;
+      row.querySelectorAll('a[data-tid]').forEach(a=>a.addEventListener('click',async()=>{await sb.from('aptitude_completions').upsert({user_id:S.user.id,test_id:a.dataset.tid},{onConflict:'user_id,test_id'})}));
+      el.appendChild(row);
+    });
+  }catch(e){
+    console.warn('loadTests error:',e.message);
+    if(el)el.innerHTML='<div class="p-5 text-center text-xs text-slate-600">Could not load tests — please refresh.</div>';
+  }
 }
 
 // ===== ADMIN =====
 async function loadAdmin(){
   if(!S.user)return;
-  const[{data:users},{data:sessions},{data:grades},{data:tests}]=await Promise.all([
-    sb.from('profiles').select('*').order('created_at',{ascending:false}),
-    sb.from('interview_sessions').select('*'),
-    sb.from('grading_reports').select('*'),
-    sb.from('aptitude_tests').select('id')
-  ]);
-  $(`#ad-users`).textContent=users?.length||0;$(`#ad-sess`).textContent=sessions?.length||0;
-  const scores=(grades||[]).map(g=>g.overall_score);
-  $(`#ad-avg`).textContent=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):'—';
-  $(`#ad-tests`).textContent=tests?.length||0;
-  const uStats={};
-  (sessions||[]).forEach(s=>{if(!uStats[s.user_id])uStats[s.user_id]={count:0,scores:[]};uStats[s.user_id].count++;(grades||[]).filter(g=>g.session_id===s.id).forEach(g=>uStats[s.user_id].scores.push(g.overall_score))});
-  const el=$('#ad-users-list');el.innerHTML='';
-  if(!users?.length){el.innerHTML='<div class="p-4 text-center text-xs text-mut">No users yet.</div>';}
-  else{
-    users.slice(0,20).forEach(u=>{
-      const st=uStats[u.id]||{count:0,scores:[]};const avg=st.scores.length?Math.round(st.scores.reduce((a,b)=>a+b,0)/st.scores.length):'—';
-      const row=document.createElement('div');row.className='sr';
-      row.innerHTML=`<div class="flex-1"><div class="text-xs font-medium">${esc(u.name||'—')} ${u.role==='admin'?'<span class="text-[10px] text-acc">Admin</span>':''}<br><span class="text-[10px] text-mut">${esc(u.university||'—')} · ${esc(u.program||'—')}</span></div></div><div class="text-[10px] text-mut mr-3">${st.count} interviews</div><div class="text-xs font-semibold ${typeof avg==='number'?(avg>=70?'text-ok':avg>=50?'text-acc':'text-err'):'text-mut'}">${avg}${typeof avg==='number'?'%':''}</div>`;
-      el.appendChild(row);
-    });
-  }
-  // Load unanswered student questions
-  const qel=$('#ad-questions-list');
-  if(qel){
-    const{data:qs}=await sb.from('admin_questions').select('*,profiles(name)').is('answer',null).order('created_at',{ascending:false});
-    if(!qs?.length){qel.innerHTML='<div class="p-4 text-center text-xs text-mut">No pending questions.</div>';}
+  try{
+    const[{data:users},{data:sessions},{data:grades},{data:tests}]=await Promise.all([
+      sb.from('profiles').select('*').order('created_at',{ascending:false}),
+      sb.from('interview_sessions').select('*'),
+      sb.from('grading_reports').select('*'),
+      sb.from('aptitude_tests').select('id')
+    ]);
+    $(`#ad-users`).textContent=users?.length||0;$(`#ad-sess`).textContent=sessions?.length||0;
+    const scores=(grades||[]).map(g=>g.overall_score);
+    $(`#ad-avg`).textContent=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):'—';
+    $(`#ad-tests`).textContent=tests?.length||0;
+    const uStats={};
+    (sessions||[]).forEach(s=>{if(!uStats[s.user_id])uStats[s.user_id]={count:0,scores:[]};uStats[s.user_id].count++;(grades||[]).filter(g=>g.session_id===s.id).forEach(g=>uStats[s.user_id].scores.push(g.overall_score))});
+    const el=$('#ad-users-list');el.innerHTML='';
+    if(!users?.length){el.innerHTML='<div class="p-4 text-center text-xs text-slate-500">No users yet.</div>';}
     else{
-      qel.innerHTML='';
-      qs.forEach(q=>{
-        const row=document.createElement('div');row.className='p-3 border-b border-bdr/50';
-        row.innerHTML=`<div class="flex items-start gap-3"><div class="flex-1"><div class="text-[10px] text-mut mb-0.5">${esc(q.profiles?.name||'Student')} · ${new Date(q.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</div><p class="text-xs text-white mb-2">${esc(q.question)}</p><div class="flex gap-2"><textarea id="aq-${q.id}" rows="2" placeholder="Type your reply..." class="flex-1 bg-elev border border-bdr rounded-lg px-2 py-1.5 text-[11px] text-white placeholder-mut/40 focus:outline-none focus:border-acc/40 resize-none transition"></textarea><button onclick="replyAdminQuestion('${q.id}')" class="bg-acc hover:bg-acc-h text-bg font-semibold px-2 py-1 rounded-lg text-[10px] self-end transition">Reply</button></div></div></div>`;
-        qel.appendChild(row);
+      users.slice(0,20).forEach(u=>{
+        const st=uStats[u.id]||{count:0,scores:[]};const avg=st.scores.length?Math.round(st.scores.reduce((a,b)=>a+b,0)/st.scores.length):'—';
+        const row=document.createElement('div');row.className='sr';
+        row.innerHTML=`<div class="flex-1"><div class="text-xs font-semibold text-slate-200">${esc(u.name||'—')} ${u.role==='admin'?'<span class="text-[10px] text-violet-400 font-bold">Admin</span>':''}<br><span class="text-[10px] text-slate-500">${esc(u.university||'—')} · ${esc(u.program||'—')}</span></div></div><div class="text-[10px] text-slate-500 mr-3">${st.count} interview${st.count!==1?'s':''}</div><div class="text-xs font-bold ${typeof avg==='number'?(avg>=70?'text-emerald-400':avg>=50?'text-amber-400':'text-red-400'):'text-slate-500'}">${avg}${typeof avg==='number'?'%':''}</div>`;
+        el.appendChild(row);
       });
     }
+    // Unanswered student questions
+    const qel=$('#ad-questions-list');
+    if(qel){
+      const{data:qs}=await sb.from('admin_questions').select('*,profiles(name)').is('answer',null).order('created_at',{ascending:false});
+      if(!qs?.length){qel.innerHTML='<div class="p-4 text-center text-xs text-slate-500">No pending questions. ✅</div>';}
+      else{
+        qel.innerHTML='';
+        qs.forEach(q=>{
+          const row=document.createElement('div');row.className='p-3';row.style.borderBottom='1px solid #1a1a2e';
+          row.innerHTML=`<div class="text-[10px] text-slate-500 mb-1">${esc(q.profiles?.name||'Student')} · ${new Date(q.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</div><p class="text-xs text-slate-200 mb-2 font-medium">${esc(q.question)}</p><div class="flex gap-2"><textarea id="aq-${q.id}" rows="2" placeholder="Type your reply..." class="flex-1 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none resize-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e"></textarea><button onclick="replyAdminQuestion('${q.id}')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-white self-end btn-glow shrink-0" style="background:linear-gradient(135deg,#7c3aed,#06b6d4)">Reply</button></div>`;
+          qel.appendChild(row);
+        });
+      }
+    }
+  }catch(e){
+    console.error('loadAdmin error:',e.message);
+    const el=$('#ad-users-list');
+    if(el)el.innerHTML='<div class="p-4 text-center text-xs text-slate-500">Could not load data — please refresh.</div>';
   }
 }
 
@@ -729,23 +740,25 @@ async function replyAdminQuestion(id){
   toast('Reply sent!','ok');loadAdmin();
 }
 
-// ===== ADMIN REPLIES (student view — show when admin has answered their question) =====
+// ===== ADMIN REPLIES (student view) =====
 async function loadAdminReplies(){
   if(!S.user)return;
-  const{data:replies}=await sb.from('admin_questions').select('*').eq('user_id',S.user.id).not('answer','is',null).order('answered_at',{ascending:false}).limit(5);
-  const card=$('#admin-replies-card'),list=$('#admin-replies-list');
-  if(!card||!list)return;
-  if(!replies?.length){card.classList.add('hidden');return}
-  card.classList.remove('hidden');
-  list.innerHTML=replies.map(r=>`
-    <div class="px-4 py-3">
-      <p class="text-[11px] font-semibold text-slate-300 mb-1">${esc(r.question)}</p>
-      <div class="flex items-start gap-2 mt-1.5 p-2.5 rounded-xl" style="background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.15)">
-        <i class="fa-solid fa-reply text-emerald-400 text-[10px] mt-0.5 shrink-0"></i>
-        <p class="text-xs text-slate-300 leading-relaxed">${esc(r.answer)}</p>
-      </div>
-      <p class="text-[10px] text-slate-600 mt-1">${r.answered_at?new Date(r.answered_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):''}</p>
-    </div>`).join('');
+  try{
+    const{data:replies}=await sb.from('admin_questions').select('*').eq('user_id',S.user.id).not('answer','is',null).order('answered_at',{ascending:false}).limit(5);
+    const card=$('#admin-replies-card'),list=$('#admin-replies-list');
+    if(!card||!list)return;
+    if(!replies?.length){card.classList.add('hidden');return}
+    card.classList.remove('hidden');
+    list.innerHTML=replies.map(r=>`
+      <div class="px-4 py-3">
+        <p class="text-[11px] font-semibold text-slate-300 mb-1">${esc(r.question)}</p>
+        <div class="flex items-start gap-2 mt-1.5 p-2.5 rounded-xl" style="background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.15)">
+          <i class="fa-solid fa-reply text-emerald-400 text-[10px] mt-0.5 shrink-0"></i>
+          <p class="text-xs text-slate-300 leading-relaxed">${esc(r.answer)}</p>
+        </div>
+        <p class="text-[10px] text-slate-600 mt-1">${r.answered_at?new Date(r.answered_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):''}</p>
+      </div>`).join('');
+  }catch(e){console.warn('loadAdminReplies error:',e.message)}
 }
 
 // ===== MANAGE TESTS =====
@@ -1164,20 +1177,24 @@ async function submitAdminQuestion(){
 }
 
 async function finaliseInterview(){
-  // Grade and save everything
   let grade=null;
   if(S.serverUp){
     try{grade=await apiGrade({conversation:S.conversation,field:S.field,fieldLabel:S.fieldLabel,name:S.name,program:S.profile?.program||''})}
     catch(e){console.warn('LLM grading failed, using fallback')}
   }
   if(!grade)grade=fallbackGrade(S.conversation,S.field);
+  // Save to DB — wrapped so showResults ALWAYS runs even if DB fails
   if(S.user&&S.currentSessionId){
-    const turns=S.conversation.map((t,i)=>({session_id:S.currentSessionId,turn_number:i,role:t.role,interviewer_name:t.interviewer||null,text:t.text}));
-    await sb.from('interview_turns').insert(turns);
-    if(grade)await sb.from('grading_reports').insert({session_id:S.currentSessionId,overall_score:grade.overall,communication_score:grade.communication,technical_score:grade.technical,relevance_score:grade.relevance,confidence_score:grade.confidence,feedback_text:grade.feedback,improvement_notes:grade.improvements});
-    await sb.from('interview_sessions').update({status:'completed',ended_at:new Date().toISOString()}).eq('id',S.currentSessionId);
+    try{
+      const turns=S.conversation.map((t,i)=>({session_id:S.currentSessionId,turn_number:i,role:t.role,interviewer_name:t.interviewer||null,text:t.text}));
+      await sb.from('interview_turns').insert(turns);
+      if(grade)await sb.from('grading_reports').insert({session_id:S.currentSessionId,overall_score:grade.overall,communication_score:grade.communication,technical_score:grade.technical,relevance_score:grade.relevance,confidence_score:grade.confidence,feedback_text:grade.feedback,improvement_notes:grade.improvements});
+      await sb.from('interview_sessions').update({status:'completed',ended_at:new Date().toISOString()}).eq('id',S.currentSessionId);
+    }catch(dbErr){
+      console.warn('DB save failed (results will still show):',dbErr.message);
+    }
   }
-  await sl(300);showResults(grade);
+  showResults(grade);
 }
 
 function showResults(g){
@@ -1394,7 +1411,14 @@ function updateWCMeter(transcript){
 function hideWCMeter(){$('#wc-meter')?.classList.add('hidden')}
 
 // ===== CERTIFICATE =====
-function checkCertificate(score){if(score>=70){$('#cert-card')?.classList.remove('hidden');const m=$('#cert-msg');if(m)m.textContent=`🏆 You scored ${score}% — you're interview ready!`}}
+function checkCertificate(score){
+  if(score>=70){
+    const card=$('#cert-card-result');
+    const msg=$('#cert-msg');
+    if(card)card.classList.remove('hidden');
+    if(msg)msg.textContent=`🏆 You scored ${score}% — you're interview ready!`;
+  }
+}
 function downloadCertificate(){
   const name=S.profile?.name||'Student',score=$('#sc-n')?.textContent||'70',field=S.fieldLabel||'Engineering';
   const date=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
