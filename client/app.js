@@ -11,7 +11,7 @@ const S={
   conversation:[],currentQ:0,totalQ:8,questionArc:[],phase:'idle',
   isListening:false,isSpeaking:false,serverUp:false,ending:false,
   studentQPhase:false,studentQCount:0,studentQMax:2,
-  _coachTimer:null,
+  _coachTimer:null,_finalising:false,
   micStream:null,audioCtx:null,analyser:null,animId:null,
   silenceT:null,maxT:null,finalTxt:'',interimTxt:'',
   currentIV:null,teamIdx:0,
@@ -1947,13 +1947,21 @@ function updateProgress(){
   const footer=$('#d-cnt-footer');if(footer)footer.textContent=label;
 }
 function getVoiceCfg(){
-  if(S.mode==='team'&&S.currentIV)return{gender:S.currentIV.gender,pitch:S.currentIV.pitch,rate:S.currentIV.rate};
+  // Always use S.currentIV if it has pitch/rate (set from the session-built pool)
+  if(S.currentIV&&S.currentIV.pitch&&S.currentIV.rate){
+    return{gender:S.currentIV.gender||'male',pitch:S.currentIV.pitch,rate:S.currentIV.rate};
+  }
   if(S.mode==='random')return{gender:Math.random()>0.5?'female':'male',pitch:0.85+Math.random()*0.28,rate:0.88+Math.random()*0.07};
   return{...(SP[S.mode]||SP.male)};
 }
 function getCurrentInterviewer(){
-  if(S.mode!=='team')return{...(SP[S.mode||'male']),role:'Interviewer',focus:null,color:'#e8a023'};
-  return TM[S.teamIdx%TM.length];
+  if(S.mode==='team')return TM[S.teamIdx%TM.length];
+  // For non-team modes: use the session-built pool person if available
+  if(S.currentIV&&S.currentIV.name&&S.currentIV.pitch){
+    return S.currentIV; // already set from buildFieldPool in beginInterview
+  }
+  // Fallback to SP only if pool not yet built (first call from startInt before beginInterview)
+  return{...(SP[S.mode||'male']),role:'Interviewer',focus:null,color:'#e8a023'};
 }
 
 // ===== INTERVIEW FLOW =====
@@ -1965,7 +1973,7 @@ async function startInt(){
   S.hasInternship=S.profile?.has_internship||false;
   await apiHealth();
   S.conversation=[];S.currentQ=0;S.teamIdx=0;S.ending=false;S.currentSessionId=null;
-  S.sessionPool=null;S.sessionPanel=null; // will be rebuilt in beginInterview
+  S.sessionPool=null;S.sessionPanel=null;S._finalising=false;
   S.totalQ=parseInt($$('#qcount-sel button[data-sel="1"]')[0]?.dataset.q||'12');
   S.questionArc=buildArc(S.totalQ);
   $(`#transcript`).innerHTML='';updateProgress();showScreen('interview');
@@ -2010,12 +2018,37 @@ async function beginInterview(){
 
   // Set up portrait for single interviewer modes
   const ivPool = S.sessionPool;
-  const portrait = ivPool[Math.floor(Math.random() * ivPool.length)];
-  if(S.mode!=='team'&&portrait){
-    S.currentIV={...S.currentIV,name:portrait.name,role:portrait.role,gender:portrait.gender,pitch:portrait.pitch,rate:portrait.rate,color:portrait.color};
-    updatePortrait(portrait);
+  // For 'male' mode: prefer male interviewers; 'female': prefer female; 'random': any
+  let portrait;
+  if(S.mode==='male'){
+    const malePool=ivPool.filter(iv=>iv.gender==='male');
+    portrait=(malePool.length?malePool:ivPool)[Math.floor(Math.random()*(malePool.length||ivPool.length))];
+  }else if(S.mode==='female'){
+    const femalePool=ivPool.filter(iv=>iv.gender==='female');
+    portrait=(femalePool.length?femalePool:ivPool)[Math.floor(Math.random()*(femalePool.length||ivPool.length))];
   }else{
-    updatePortrait({emoji:S.currentIV.gender==='female'?'👩🏿‍💼':'👨🏿‍💼',name:S.currentIV.name,role:S.currentIV.role,color:S.currentIV.color||'#7c3aed'});
+    // random or any other mode: pick from full pool
+    portrait=ivPool[Math.floor(Math.random()*ivPool.length)];
+  }
+
+  if(S.mode!=='team'&&portrait){
+    // Fully replace S.currentIV with the session-built person (all fields including emoji)
+    S.currentIV={
+      name:portrait.name, role:portrait.role,
+      gender:portrait.gender, pitch:portrait.pitch, rate:portrait.rate,
+      color:portrait.color, emoji:portrait.emoji,
+      focus:null
+    };
+    updatePortrait(portrait);
+  }else if(S.mode==='team'){
+    // Team mode: start with first panel member
+    S.currentIV=TM[0];
+    updatePortrait({
+      emoji:TM[0].emoji||(TM[0].gender==='female'?'👩🏿‍💼':'👨🏿‍💼'),
+      name:TM[0].name, role:TM[0].role, color:TM[0].color||'#7c3aed'
+    });
+  }else{
+    updatePortrait({emoji:'👨🏿‍💼',name:S.currentIV?.name||'Interviewer',role:S.currentIV?.role||'Interviewer',color:S.currentIV?.color||'#7c3aed'});
   }
 
   const vc=getVoiceCfg();
@@ -2154,10 +2187,21 @@ async function processAnswer(text){
 
   setPhase('processing');
 
-  // Panel interviewer rotation
+  // Panel interviewer rotation — every 2 questions a new panel member takes over
   if(S.mode==='team'&&S.currentQ%2===0){
     S.teamIdx++;S.currentIV=getCurrentInterviewer();
-    updatePortrait({emoji:S.currentIV.gender==='female'?'👩🏿‍💼':'👨🏿‍💼',name:S.currentIV.name,role:S.currentIV.role,color:S.currentIV.color||'#7c3aed'});
+    updatePortrait({
+      emoji:S.currentIV.emoji||(S.currentIV.gender==='female'?'👩🏿‍💼':'👨🏿‍💼'),
+      name:S.currentIV.name,role:S.currentIV.role,
+      color:S.currentIV.color||'#7c3aed'
+    });
+  }
+  // Non-team modes: occasionally rotate interviewer to add variety (every 3-4 questions)
+  if(S.mode!=='team'&&S.sessionPool&&S.sessionPool.length>1&&S.currentQ>0&&S.currentQ%3===0){
+    const nextIdx=Math.floor(Math.random()*S.sessionPool.length);
+    const nextIV=S.sessionPool[nextIdx];
+    S.currentIV={...S.currentIV,...nextIV};
+    updatePortrait(nextIV);
   }
 
   // Fire both API calls in parallel — cuts wait time roughly in half
@@ -2312,6 +2356,8 @@ async function submitAdminQuestion(){
 }
 
 async function finaliseInterview(){
+  if(S._finalising)return; // guard against double-call from confirmLeave + closeSQModal
+  S._finalising=true;
   let grade=null;
   if(S.serverUp){
     try{grade=await apiGrade({conversation:S.conversation,field:S.field,fieldLabel:S.fieldLabel,name:S.name,program:S.profile?.program||''})}
@@ -2346,7 +2392,20 @@ function showResults(g){
   const il=$('#r-imp');il.innerHTML='';
   (g.improvements||[]).forEach(im=>{const li=document.createElement('li');li.className='flex items-start gap-1.5 text-[11px]';li.innerHTML=`<i class="fa-solid fa-arrow-right text-acc text-[9px] mt-0.5 shrink-0"></i><span>${esc(im)}</span>`;il.appendChild(li)});
   const td=$('#r-trans');td.innerHTML='';
-  S.conversation.forEach(c=>{const d=document.createElement('div');d.className=`m m-${c.role==='ai'?'ai':'st'}`;let prefix='';if(c.role==='ai'&&c.interviewer){const panel=S.mode==='team'?TM.find(t=>t.name===c.interviewer):null;prefix=`<div class="mn" style="color:${panel?panel.color:'#888'}">${esc(c.interviewer)}</div>`}d.innerHTML=`${prefix}<div class="ml">${c.role==='ai'?'Interviewer':esc(S.name)}</div><div class="mb">${esc(c.text)}</div>`;td.appendChild(d)});
+  // Build a name→color map from whichever pool was used this session
+  const ivColorMap={};
+  (S.sessionPool||[]).forEach(iv=>{ivColorMap[iv.name]=iv.color||'#888'});
+  (S.sessionPanel||TM||[]).forEach(iv=>{ivColorMap[iv.name]=iv.color||'#888'});
+  S.conversation.forEach(c=>{
+    const d=document.createElement('div');d.className=`m m-${c.role==='ai'?'ai':'st'}`;
+    let prefix='';
+    if(c.role==='ai'&&c.interviewer){
+      const col=ivColorMap[c.interviewer]||'#888';
+      prefix=`<div class="mn" style="color:${col}">${esc(c.interviewer)}</div>`;
+    }
+    d.innerHTML=`${prefix}<div class="ml">${c.role==='ai'?'Interviewer':esc(S.name)}</div><div class="mb">${esc(c.text)}</div>`;
+    td.appendChild(d);
+  });
   $(`#r-sub`).textContent=S.mode==='team'?'Panel interview — 4 interviewers':'Mock interview — '+S.totalQ+' questions';
 }
 
