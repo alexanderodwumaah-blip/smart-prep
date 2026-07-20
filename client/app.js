@@ -564,7 +564,6 @@ const tts={
     const ld=()=>{
       const v=this.syn.getVoices().filter(x=>x.lang.startsWith('en'));
       if(!v.length)return;
-      // Prefer high-quality voices
       this.mV=v.find(x=>/google.*uk.*male|daniel|google.*en.*male/i.test(x.name))
              ||v.find(x=>/male/i.test(x.name))
              ||v.find(x=>x.lang==='en-GB')
@@ -577,26 +576,50 @@ const tts={
     };
     ld();
     if(typeof this.syn.onvoiceschanged!=='undefined')this.syn.onvoiceschanged=ld;
-    // Retry after 500ms in case voices weren't ready
-    setTimeout(()=>{if(!this._ready)ld()},500);
+    // Multiple retries — iOS Safari delays voice loading significantly
+    setTimeout(()=>ld(),300);
+    setTimeout(()=>ld(),800);
+    setTimeout(()=>ld(),2000);
   },
+
+  // waitForVoices — resolves when voices are ready (max 4s)
+  waitForVoices(){
+    return new Promise(resolve=>{
+      if(this._ready){resolve();return;}
+      let attempts=0;
+      const check=setInterval(()=>{
+        const v=this.syn.getVoices().filter(x=>x.lang.startsWith('en'));
+        if(v.length){
+          this._ready=true;
+          // re-pick best voices
+          this.mV=v.find(x=>/google.*uk.*male|daniel|google.*en.*male/i.test(x.name))||v.find(x=>/male/i.test(x.name))||v.find(x=>x.lang==='en-GB')||v[0];
+          this.fV=v.find(x=>/google.*uk.*female|samantha|karen|moira|tessa/i.test(x.name))||v.find(x=>/female/i.test(x.name))||v.find(x=>x.lang==='en-GB')||v[1]||v[0];
+          clearInterval(check);resolve();
+        }
+        if(++attempts>40){clearInterval(check);resolve();}// give up after 4s
+      },100);
+    });
+  },
+
   async speak(text,cfg){
     S.isSpeaking=true;
-    this.syn.cancel();
-    // Preprocess text for natural pronunciation (titles, Ghanaian names)
+    // Cancel any ongoing speech
+    try{this.syn.cancel();}catch(e){}
+    // Wait for voices to be available (mobile needs this)
+    await this.waitForVoices();
+    if(!S.isSpeaking)return; // was interrupted while waiting
+
     const processed = preprocessTTS(text);
-    // Split on sentence boundaries for more natural pacing
     const segs=processed.match(/[^.!?]+[.!?]+(?:\s|$)|[^.!?]+$/g)||[processed];
     for(let i=0;i<segs.length;i++){
-      // Check for interruption between sentences
       if(!S.isSpeaking)break;
       const s=segs[i].trim();if(!s)continue;
       await this._utterance(s,cfg);
-      // Natural pause between sentences — but bail if interrupted
       if(i<segs.length-1&&S.isSpeaking)await sl(150+Math.random()*120);
     }
     S.isSpeaking=false;
   },
+
   _utterance(text,cfg){
     return new Promise(resolve=>{
       const u=new SpeechSynthesisUtterance(text);
@@ -604,15 +627,30 @@ const tts={
       u.pitch=cfg.pitch+(Math.random()*0.04-0.02);
       u.rate=cfg.rate+(Math.random()*0.02-0.01);
       u.volume=1;
-      // Fallback timeout based on text length
-      const timeout=Math.max(3000,text.length*95);
-      const timer=setTimeout(()=>{resolve()},timeout);
-      u.onend=()=>{clearTimeout(timer);resolve()};
-      u.onerror=()=>{clearTimeout(timer);resolve()};
-      this.syn.speak(u);
+      let resolved=false;
+      const done=()=>{if(!resolved){resolved=true;clearTimeout(timer);resolve();}};
+      // Per-character timeout + absolute minimum
+      const timeout=Math.max(4000,text.length*80);
+      const timer=setTimeout(done,timeout);
+      u.onend=done;
+      u.onerror=(e)=>{
+        // On iOS 'interrupted' is normal when cancel() is called — don't warn
+        if(e.error&&e.error!=='interrupted'&&e.error!=='canceled'){
+          console.warn('TTS utterance error:',e.error);
+        }
+        done();
+      };
+      try{
+        this.syn.speak(u);
+        // iOS Safari workaround: if synthesis is paused, resume it
+        if(this.syn.paused){this.syn.resume();}
+      }catch(err){
+        console.warn('TTS speak failed:',err.message);
+        done();
+      }
     });
   },
-  stop(){S.isSpeaking=false;this.syn.cancel()},
+  stop(){S.isSpeaking=false;try{this.syn.cancel();}catch(e){}},
   _pickVoice(gender){return gender==='female'?(this.fV||this.mV):(this.mV||this.fV)}
 };
 
@@ -1312,10 +1350,10 @@ async function mtGo(){
 
     // Analyser with sensitive settings to pick up quiet voices
     S.mtAn=S.mtCtx.createAnalyser();
-    S.mtAn.fftSize=256;          // smaller fftSize = faster response
-    S.mtAn.minDecibels=-90;      // very sensitive — picks up quiet sounds
-    S.mtAn.maxDecibels=-10;      // cap at -10dB to avoid clipping display
-    S.mtAn.smoothingTimeConstant=0.7; // smooth bars visually
+    S.mtAn.fftSize=512;          // larger fftSize = better frequency resolution
+    S.mtAn.minDecibels=-100;     // maximum sensitivity — picks up even very quiet sounds
+    S.mtAn.maxDecibels=-5;       // allow loud sounds too
+    S.mtAn.smoothingTimeConstant=0.8; // smooth so bars don't jump
 
     // Connect mic stream → analyser
     const src=S.mtCtx.createMediaStreamSource(S.mtStream);
@@ -1340,47 +1378,58 @@ async function mtGo(){
 function drawMicTest(){
   const c=$('#mt-cv');
   if(!c||!S.mtAn)return;
+  // Set canvas internal dimensions to match its CSS size (avoid blur on retina)
+  const dpr=window.devicePixelRatio||1;
+  const rect=c.getBoundingClientRect();
+  if(rect.width>0){c.width=Math.round(rect.width*dpr);c.height=Math.round(36*dpr);}
   const ctx=c.getContext('2d');
-  const bins=S.mtAn.frequencyBinCount; // = fftSize/2 = 128
+  const bins=S.mtAn.frequencyBinCount;
   const data=new Uint8Array(bins);
-  let peakPct=0;
+  let smoothLevel=0;
 
   function frame(){
-    if(!S.mtAn){ctx.clearRect(0,0,c.width,c.height);return}
+    if(!S.mtAn){ctx.clearRect(0,0,c.width,c.height);return;}
     S.mtAnim=requestAnimationFrame(frame);
     S.mtAn.getByteFrequencyData(data);
 
-    // Calculate average loudness
-    let sum=0;for(let i=0;i<bins;i++)sum+=data[i];
-    const avg=sum/bins;
-    const pct=Math.min(100,Math.round(avg*1.5)); // scale up for display
-    if(pct>peakPct)peakPct=pct;
+    // Use broader speech range: bins 1-40 (covers ~85Hz–3.5kHz at fftSize 256, 44100Hz)
+    let sum=0,count=0;
+    const lo=1,hi=Math.min(40,data.length-1);
+    for(let i=lo;i<=hi;i++){sum+=data[i];count++;}
+    const raw=count>0?sum/count:0;
+    // Smooth with exponential moving average — prevents jumpy bars
+    smoothLevel=smoothLevel*0.75+raw*0.25;
+    const pct=Math.min(100,Math.round((smoothLevel/255)*100*2.2)); // amplify for display
 
-    // Draw bars
-    ctx.clearRect(0,0,c.width,c.height);
-    const bw=Math.floor(c.width/bins)-1;
-    for(let i=0;i<bins;i++){
-      const h=Math.max(1,(data[i]/255)*c.height);
-      // Green when loud, cyan when medium, violet when quiet
-      const loudness=data[i]/255;
-      const r=Math.round(16+loudness*108);  // 16→124
-      const g=Math.round(185-loudness*127); // 185→58
-      const bChannel=Math.round(129+loudness*108); // 129→237
-      ctx.fillStyle=`rgba(${r},${g},${bChannel},${0.5+loudness*0.5})`;
-      ctx.fillRect(i*(bw+1),c.height-h,bw,h);
+    // Draw a clean level bar (not individual frequency bars — those cause layout jitter)
+    const w=c.width,h=c.height;
+    ctx.clearRect(0,0,w,h);
+    // Background track
+    ctx.fillStyle='rgba(45,45,78,0.6)';
+    ctx.beginPath();ctx.roundRect(0,Math.round(h*0.25),w,Math.round(h*0.5),4);ctx.fill();
+    // Level fill
+    if(pct>0){
+      const grad=ctx.createLinearGradient(0,0,w,0);
+      grad.addColorStop(0,'#7c3aed');
+      grad.addColorStop(0.5,'#06b6d4');
+      grad.addColorStop(1,'#10b981');
+      ctx.fillStyle=grad;
+      ctx.beginPath();
+      ctx.roundRect(0,Math.round(h*0.25),Math.round(w*(pct/100)),Math.round(h*0.5),4);
+      ctx.fill();
     }
 
     // Status text
     const st=$('#mt-st');
     if(st){
-      if(pct>=20){
-        st.textContent=`✅ Mic working! Level: ${pct}% — your microphone is detected.`;
+      if(pct>=15){
+        st.textContent=`✅ Mic working — Level: ${pct}%`;
         st.style.color='#10b981';
-      }else if(pct>=5){
-        st.textContent=`🟡 Low signal (${pct}%) — speak louder or move closer to mic.`;
+      }else if(pct>=4){
+        st.textContent=`🟡 Low signal (${pct}%) — speak louder or move closer`;
         st.style.color='#f59e0b';
       }else{
-        st.textContent='🔴 No audio detected — speak now, or check mic permissions in browser settings.';
+        st.textContent='🔴 No audio detected — speak now or check mic permissions';
         st.style.color='#ef4444';
       }
     }
@@ -1438,8 +1487,20 @@ async function loadDashboard(){
   loadDailyQuestion(S.profile?.program_category||S.field);
   renderCompanies(NSS_COMPANIES);
   loadAdminReplies();
-  // Scheduled sessions
-  const sched=(sessions||[]).filter(s=>s.status==='scheduled'&&new Date(s.scheduled_for)>new Date());
+  // Scheduled sessions — fetch separately to avoid null started_at ordering issues
+  let sched=[];
+  try{
+    const{data:schedData}=await sb.from('interview_sessions')
+      .select('*')
+      .eq('user_id',S.user.id)
+      .eq('status','scheduled')
+      .gt('scheduled_for',new Date().toISOString())
+      .order('scheduled_for',{ascending:true});
+    sched=schedData||[];
+  }catch(e){
+    // Fallback: filter from already-fetched sessions
+    sched=(sessions||[]).filter(s=>s.status==='scheduled'&&s.scheduled_for&&new Date(s.scheduled_for)>new Date());
+  }
   const sec=$('#sched-sec'),list=$('#sched-list');
   if(sched.length){
     sec.classList.remove('hidden');list.innerHTML='';

@@ -151,8 +151,8 @@ select optgroup{background:#13131f;color:#7c3aed;font-weight:700}
 
 /* ── MOBILE SAFE AREA ── */
 @supports(padding:max(0px)){
-  .pb-safe{padding-bottom:max(16px,env(safe-area-inset-bottom))}
-  .pt-safe{padding-top:max(48px,calc(44px + env(safe-area-inset-top)))}
+  .pb-safe{padding-bottom:max(20px,env(safe-area-inset-bottom))}
+  .pt-safe{padding-top:max(56px,calc(48px + env(safe-area-inset-top)))}
 }
 
 /* ── RESPONSIVE ── */
@@ -388,7 +388,7 @@ select optgroup{background:#13131f;color:#7c3aed;font-weight:700}
 </div>
 
 <!-- STUDENT DASHBOARD -->
-<div id="s-dash" class="scr flex-col pt-12 px-4 py-5 pb-safe">
+<div id="s-dash" class="scr flex-col pt-safe px-4 py-5 pb-safe">
 <div class="max-w-3xl mx-auto w-full space-y-4">
   <!-- Header -->
   <div class="flex items-center justify-between">
@@ -396,8 +396,9 @@ select optgroup{background:#13131f;color:#7c3aed;font-weight:700}
       <h1 class="text-xl font-black" id="dash-greet">Welcome!</h1>
       <p class="text-slate-500 text-xs mt-0.5">Your national service interview command centre</p>
     </div>
-    <button onclick="showScreen('setup')" class="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-white btn-glow" style="background:linear-gradient(135deg,#7c3aed,#06b6d4);box-shadow:0 4px 16px rgba(124,58,237,.3)">
-      <i class="fa-solid fa-plus"></i><span class="hide-sm">New</span>
+    <button onclick="showScreen('setup')" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-black text-white btn-glow" style="background:linear-gradient(135deg,#7c3aed,#06b6d4);box-shadow:0 4px 20px rgba(124,58,237,.4)">
+      <i class="fa-solid fa-microphone text-base"></i>
+      <span>Start Interview</span>
     </button>
   </div>
   <!-- Stats -->
@@ -484,7 +485,7 @@ select optgroup{background:#13131f;color:#7c3aed;font-weight:700}
 </div>
 
 <!-- APTITUDE TESTS -->
-<div id="s-tests" class="scr flex-col pt-12 px-4 py-5 pb-safe">
+<div id="s-tests" class="scr flex-col pt-safe px-4 py-5 pb-safe">
 <div class="max-w-3xl mx-auto w-full space-y-4">
   <div>
     <h1 class="text-xl font-black grad-text">Aptitude Tests</h1>
@@ -497,7 +498,7 @@ select optgroup{background:#13131f;color:#7c3aed;font-weight:700}
 </div>
 
 <!-- SESSION DETAIL -->
-<div id="s-detail" class="scr flex-col pt-12 px-4 py-5 pb-safe">
+<div id="s-detail" class="scr flex-col pt-safe px-4 py-5 pb-safe">
 <div class="max-w-3xl mx-auto w-full space-y-4">
   <button onclick="showScreen('dash')" class="flex items-center gap-2 text-xs text-slate-500 hover:text-white transition font-medium">
     <i class="fa-solid fa-arrow-left"></i>Back to Dashboard
@@ -544,7 +545,7 @@ select optgroup{background:#13131f;color:#7c3aed;font-weight:700}
 </div>
 
 <!-- ADMIN DASHBOARD -->
-<div id="s-admin" class="scr flex-col pt-12 px-4 py-5 pb-safe">
+<div id="s-admin" class="scr flex-col pt-safe px-4 py-5 pb-safe">
 <div class="max-w-4xl mx-auto w-full space-y-4">
   <div>
     <h1 class="text-xl font-black grad-text">Admin Dashboard</h1>
@@ -564,7 +565,7 @@ select optgroup{background:#13131f;color:#7c3aed;font-weight:700}
 </div>
 
 <!-- ADMIN: MANAGE TESTS -->
-<div id="s-mgmt" class="scr flex-col pt-12 px-4 py-5 pb-safe">
+<div id="s-mgmt" class="scr flex-col pt-safe px-4 py-5 pb-safe">
 <div class="max-w-3xl mx-auto w-full space-y-4">
   <div>
     <h1 class="text-xl font-black grad-text">Manage Aptitude Tests</h1>
@@ -822,7 +823,7 @@ select optgroup{background:#13131f;color:#7c3aed;font-weight:700}
       <!-- Mic level -->
       <div>
         <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">🎤 Microphone Level</p>
-        <canvas id="mt-cv" width="200" height="24" class="rounded mb-1" style="display:block;margin:0 auto"></canvas>
+        <canvas id="mt-cv" width="300" height="36" class="rounded mb-1 w-full" style="display:block;height:36px;max-height:36px"></canvas>
         <p class="text-[11px] text-slate-400" id="mt-st">Click Start to test mic</p>
         <div class="flex gap-2 justify-center mt-1.5">
           <button type="button" id="mt-go" class="px-4 py-1.5 rounded-lg text-[10px] font-semibold transition" style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.2)">Start Mic</button>
