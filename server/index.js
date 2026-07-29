@@ -109,7 +109,10 @@ try {
     }
   });
 
-  // ── Whisper transcription endpoint ─────────────────────────────────────────
+  // ── Generate question now accepts targetCompany + customQuestions ──────────
+  // (already handled by the updated generateQuestion function in llm.js)
+
+
   // Accepts audio/webm or audio/* blob, returns { transcript }
   app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
     try {

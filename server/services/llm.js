@@ -22,16 +22,18 @@ async function generateQuestion({
   conversation, field, fieldLabel, name, cvData,
   interviewer, currentQ, totalQ, questionArc,
   program, internshipInfo, hasInternship,
+  targetCompany, customQuestions,
 }) {
   const history = conversation
     .map(c => `${c.role === 'ai' ? (c.interviewer || 'Interviewer') : name}: ${c.text}`)
     .join('\n');
 
-  // Rich student context — the more the LLM knows, the more tailored the questions
+  // Rich student context
   let studentCtx = `Student: ${name}`;
   if (program) studentCtx += `, studying ${program}`;
   if (fieldLabel) studentCtx += ` (${fieldLabel})`;
   studentCtx += ', from a Ghanaian university.';
+  if (targetCompany) studentCtx += ` Targeting placement at: ${targetCompany}.`;
   if (hasInternship && internshipInfo) {
     studentCtx += ` Industrial attachment/internship: ${internshipInfo}.`;
   } else if (hasInternship) {
@@ -40,13 +42,23 @@ async function generateQuestion({
     studentCtx += ' Has NOT yet done industrial attachment.';
   }
 
+  // ── Rich CV context — pass raw text sections, not just extracted tags ──
   let cvContext = '';
   if (cvData) {
     const parts = [];
-    if (cvData.skills?.length) parts.push(`Skills: ${cvData.skills.join(', ')}`);
-    if (cvData.projects?.length) parts.push(`Projects: ${cvData.projects.join(' | ')}`);
-    if (cvData.experience?.length) parts.push(`Experience: ${cvData.experience.join(' | ')}`);
-    if (parts.length) cvContext = `\n\nStudent CV:\n${parts.join('\n')}`;
+    if (cvData.skills?.length)      parts.push(`Skills: ${cvData.skills.join(', ')}`);
+    if (cvData.projects?.length)    parts.push(`Projects:\n${cvData.projects.map(p=>`  • ${p}`).join('\n')}`);
+    if (cvData.experience?.length)  parts.push(`Work/Internship Experience:\n${cvData.experience.map(e=>`  • ${e}`).join('\n')}`);
+    if (cvData.education?.length)   parts.push(`Education:\n${cvData.education.map(e=>`  • ${e}`).join('\n')}`);
+    if (cvData.achievements?.length)parts.push(`Achievements/Awards:\n${cvData.achievements.map(a=>`  • ${a}`).join('\n')}`);
+    if (cvData.rawSummary)          parts.push(`CV Summary: ${cvData.rawSummary.substring(0, 400)}`);
+    if (parts.length) cvContext = `\n\nStudent CV (read carefully — questions must reference this specifically):\n${parts.join('\n\n')}`;
+  }
+
+  // ── Company-specific custom questions from admin ──
+  let customQCtx = '';
+  if (customQuestions?.length) {
+    customQCtx = `\n\nAdmin-provided questions for this session (use AT LEAST ONE of these if the question arc allows — weave them in naturally, don't read them verbatim):\n${customQuestions.map((q,i)=>`${i+1}. ${q}`).join('\n')}`;
   }
 
   const arc = Array.isArray(questionArc) ? questionArc : [];
@@ -54,24 +66,37 @@ async function generateQuestion({
 
   const alreadyAskedInternship = history.toLowerCase().includes('attachment') || history.toLowerCase().includes('internship');
 
+  // ── Company context for technical/scenario questions ──
+  const companyCtx = targetCompany
+    ? ` Frame your question in the context of ${targetCompany} — what this specific company does, what challenges engineers there face.`
+    : '';
+
   const typeGuide = {
     intro: `Warmly open the interview. Ask them to introduce themselves. Sound welcoming and professional.`,
     cv_based: cvData
-      ? `Reference ONE specific item from their CV — a named project, listed skill, or work experience. Ask them to walk through it in detail.`
+      ? `Look carefully at the student's CV above. Pick ONE specific item — a named project, a listed tool/skill, or a stated experience — and ask a deep, probing question about it. Use the exact name from the CV. Do NOT ask a generic question.`
       : (hasInternship && internshipInfo && !alreadyAskedInternship)
         ? `Ask specifically about their industrial attachment: "${internshipInfo.substring(0, 80)}". What did they do, what did they learn, what challenges did they face?`
         : `Ask about their most meaningful academic project or any practical hands-on experience.`,
-    technical: `Ask ONE focused, practical ${fieldLabel} (${program || fieldLabel}) technical question for a fresh graduate. Relate it to something they'd actually encounter at a Ghanaian company or institution.`,
+    technical: `Ask ONE focused, practical ${fieldLabel} technical question for a fresh graduate.${companyCtx} Make it something they'd actually encounter at a Ghanaian company or institution.`,
     behavioral: `Ask a behavioral question about a real situation — teamwork, conflict, leadership, or overcoming a setback. Use implicit STAR framing.`,
-    scenario: `Present a realistic ${fieldLabel} problem scenario — equipment failure, a design trade-off, a site issue — and ask how they'd handle it step by step in a Ghanaian context.`,
-    followup: `Ask a sharp, intelligent follow-up to their last answer. Probe for detail, challenge a vague claim, or ask for a concrete example.`,
-    closing: `Ask about their motivation for national service, 5-year career goals, or what they hope to contribute to Ghana's ${fieldLabel} sector.`,
+    scenario: `Present a realistic ${fieldLabel} problem scenario — equipment failure, a design trade-off, a site issue — and ask how they'd handle it step by step in a Ghanaian context.${companyCtx}`,
+    followup: `Ask a sharp, intelligent follow-up to their last answer. Probe for detail, challenge a vague claim, or ask for a concrete example. If they mentioned something specific, dig into it.`,
+    closing: `Ask about their motivation for national service, 5-year career goals, or what they hope to contribute to Ghana's ${fieldLabel} sector${targetCompany?' and specifically to '+targetCompany:''}. Make it thoughtful.`,
   };
 
-  // Special override: if has internship and not asked yet, prioritize it
   let instruction = typeGuide[qType] ?? typeGuide.followup;
+
+  // Override: if has internship and not asked yet, prioritize it
   if (qType === 'cv_based' && hasInternship && internshipInfo && !alreadyAskedInternship) {
     instruction = `The student did industrial attachment/internship: "${internshipInfo}". Ask them specifically about this experience — what they did, what they learned, and how it shaped their understanding of the field.`;
+  }
+
+  // Override: inject a custom question if we have them and the slot is right
+  const unusedCustom = (customQuestions||[]).filter(cq => !history.includes(cq.substring(0, 30)));
+  if (unusedCustom.length && ['technical','scenario','cv_based'].includes(qType) && Math.random() < 0.55) {
+    const chosen = unusedCustom[Math.floor(Math.random() * unusedCustom.length)];
+    instruction = `Ask this admin-provided question (adapt the wording slightly to sound natural, but keep the core meaning): "${chosen}"`;
   }
 
   if (interviewer?.focus) {
@@ -86,13 +111,14 @@ async function generateQuestion({
 
   const system = `You are ${interviewer?.name ?? 'the interviewer'} ${interviewer?.role ? `(${interviewer.role})` : ''} conducting a mock national service interview. This is question ${currentQ + 1} of ${totalQ}.
 
-${studentCtx}${cvContext}
+${studentCtx}${cvContext}${customQCtx}
 
 Your task: ${instruction}
 
 Critical rules:
 - Ask EXACTLY one question. One. Not two.
 - 1–3 sentences. Sound like a real Ghanaian professional, not a textbook.
+- If the CV is available, CV-based questions MUST reference a specific named item from the CV.
 - DO NOT repeat any question already in the conversation history.
 - DO NOT open with "Great!", "Excellent!", "That's interesting" or hollow praise.
 - DO NOT add preamble — go straight to the question.
@@ -101,7 +127,7 @@ Critical rules:
   return callLLM([
     { role: 'system', content: system },
     { role: 'user', content: `Conversation so far:\n${history || '(none yet)'}\n\nNext question:` },
-  ], 0.88);
+  ], 0.88, 380);
 }
 
 // ── 2. ANALYSE ANSWER IN REAL TIME ──────────────────────────────────────────

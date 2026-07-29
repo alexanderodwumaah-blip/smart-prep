@@ -561,6 +561,61 @@ select optgroup{background:#13131f;color:#7c3aed;font-weight:700}
   <div class="rounded-xl overflow-hidden" style="background:#13131f;border:1px solid #2d2d4e" id="ad-users-list"><div class="p-4 text-center text-xs text-slate-600">Loading...</div></div>
   <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Student Questions <span class="text-slate-600 font-normal normal-case">(unanswered)</span></h2>
   <div class="rounded-xl overflow-hidden" style="background:#13131f;border:1px solid #2d2d4e" id="ad-questions-list"><div class="p-4 text-center text-xs text-slate-600">Loading...</div></div>
+
+  <!-- ── CUSTOM INTERVIEW QUESTIONS ── -->
+  <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider">🎯 Custom Interview Questions
+    <span class="text-slate-600 font-normal normal-case ml-1">(injected into AI sessions)</span>
+  </h2>
+  <div class="rounded-xl p-4 space-y-3" style="background:#13131f;border:1px solid #2d2d4e">
+    <p class="text-[11px] text-slate-500 leading-relaxed">Add questions here — they'll be picked up by the AI interviewer during sessions matching the field and/or company. Great for company-specific or field-specific questions.</p>
+    <!-- Add form -->
+    <div class="space-y-2.5">
+      <textarea id="cq-text" rows="3" placeholder="e.g. At Sunon Asogli Power, how would you approach reactive power compensation on the 330kV network?" class="w-full rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none resize-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e"></textarea>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="block text-[10px] font-bold text-slate-500 mb-1">Question Type</label>
+          <select id="cq-type" class="w-full rounded-xl px-3 py-2 text-xs text-white focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e">
+            <option value="technical">Technical</option>
+            <option value="behavioral">Behavioral</option>
+            <option value="scenario">Scenario</option>
+            <option value="cv_based">CV-Based</option>
+            <option value="general">General</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-slate-500 mb-1">Field <span class="font-normal text-slate-600">(leave blank = all)</span></label>
+          <select id="cq-field" class="w-full rounded-xl px-3 py-2 text-xs text-white focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e">
+            <option value="">All Fields</option>
+            <option value="electrical">Electrical &amp; Electronic</option>
+            <option value="mechanical">Mechanical</option>
+            <option value="civil">Civil</option>
+            <option value="computer">Computer / IT</option>
+            <option value="mining">Mining</option>
+            <option value="chemical">Chemical</option>
+            <option value="petroleum">Petroleum</option>
+            <option value="agricultural">Agricultural</option>
+            <option value="biomedical">Biomedical</option>
+            <option value="geomatic">Geomatic</option>
+            <option value="materials">Materials</option>
+            <option value="health">Health Sciences</option>
+            <option value="business">Business</option>
+            <option value="safety">Safety</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="block text-[10px] font-bold text-slate-500 mb-1">Company <span class="font-normal text-slate-600">(optional — e.g. Sunon Asogli, VRA, GNPC)</span></label>
+        <input type="text" id="cq-company" placeholder="Leave blank to apply to all companies" class="w-full rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none transition" style="background:#1a1a2e;border:1px solid #2d2d4e">
+      </div>
+      <button onclick="addCustomQuestion()" class="w-full py-2.5 rounded-xl text-xs font-black text-white btn-glow transition" style="background:linear-gradient(135deg,#7c3aed,#06b6d4)">
+        <i class="fa-solid fa-plus mr-1.5"></i>Add Custom Question
+      </button>
+    </div>
+    <!-- List -->
+    <div id="ad-cq-list" class="divide-y" style="border-color:#1a1a2e;margin-top:4px">
+      <div class="p-4 text-center text-xs text-slate-600">Loading...</div>
+    </div>
+  </div>
 </div>
 </div>
 

@@ -319,3 +319,34 @@ alter table public.aptitude_tests add column if not exists fields text[] default
 alter table public.aptitude_tests add column if not exists duration_minutes int;
 alter table public.aptitude_tests add column if not exists difficulty text default 'medium';
 -- Note: 'category' (singular) remains for backward compat; 'categories' (array) is new
+
+-- ── 13. CUSTOM INTERVIEW QUESTIONS (admin-curated, injected into AI sessions) ──
+create table if not exists public.custom_questions (
+  id            uuid primary key default gen_random_uuid(),
+  question      text not null,
+  question_type text default 'general',  -- 'technical' | 'behavioral' | 'scenario' | 'cv_based' | 'general'
+  field         text,                    -- null = applies to all fields
+  company       text,                    -- null = applies to all companies; match is fuzzy
+  is_active     boolean default true,
+  created_by    uuid references public.profiles(id),
+  created_at    timestamptz default now()
+);
+
+alter table public.custom_questions enable row level security;
+
+-- Everyone authenticated can read active custom questions (needed at interview start)
+drop policy if exists "Anyone reads active custom questions" on public.custom_questions;
+create policy "Anyone reads active custom questions"
+  on public.custom_questions for select
+  using (auth.role() = 'authenticated');
+
+-- Only admins can insert/update/delete
+drop policy if exists "Admins manage custom questions" on public.custom_questions;
+create policy "Admins manage custom questions"
+  on public.custom_questions for all
+  using (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+  )
+  with check (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+  );

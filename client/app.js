@@ -11,7 +11,7 @@ const S={
   conversation:[],currentQ:0,totalQ:8,questionArc:[],phase:'idle',
   isListening:false,isSpeaking:false,serverUp:false,ending:false,
   studentQPhase:false,studentQCount:0,studentQMax:2,
-  _coachTimer:null,_finalising:false,
+  _coachTimer:null,_finalising:false,customQuestions:[],
   micStream:null,audioCtx:null,analyser:null,animId:null,
   silenceT:null,maxT:null,finalTxt:'',interimTxt:'',
   currentIV:null,teamIdx:0,
@@ -1254,6 +1254,17 @@ async function _proceedFromOverlay() {
   const startBtn = $('#btn-iv-start');
   if (startBtn) { startBtn.disabled = true; startBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Starting...'; }
 
+  // ── CRITICAL iOS FIX: unlock speechSynthesis HERE inside the gesture ────
+  // speechSynthesis.resume() must be called within the user gesture on iOS/Android.
+  // Without this, the first tts.speak() call is silently swallowed.
+  try {
+    window.speechSynthesis.cancel(); // clear any stale queue
+    const unlock = new SpeechSynthesisUtterance('');
+    unlock.volume = 0;
+    window.speechSynthesis.speak(unlock);
+    window.speechSynthesis.resume();
+  } catch(e) {}
+
   // getUserMedia runs HERE — inside the gesture handler — iOS requirement
   const ok = await startMediaFromGesture();
   if (!ok) return; // showMediaPermissionGuide already shown
@@ -1638,11 +1649,76 @@ async function loadAdmin(){
         });
       }
     }
+    // Load existing custom interview questions
+    loadCustomQuestions();
   }catch(e){
     console.error('loadAdmin error:',e.message);
     const el=$('#ad-users-list');
     if(el)el.innerHTML='<div class="p-4 text-center text-xs text-slate-500">Could not load data — please refresh.</div>';
   }
+}
+
+// ===== ADMIN CUSTOM INTERVIEW QUESTIONS =====
+async function loadCustomQuestions(){
+  const el=$('#ad-cq-list');if(!el)return;
+  try{
+    const{data:cqs}=await sb.from('custom_questions').select('*').order('created_at',{ascending:false});
+    if(!cqs?.length){
+      el.innerHTML='<div class="p-4 text-center text-xs text-slate-500">No custom questions yet. Add one above.</div>';
+      return;
+    }
+    el.innerHTML='';
+    cqs.forEach(q=>{
+      const row=document.createElement('div');row.className='p-3';row.style.borderBottom='1px solid #1a1a2e';
+      const fieldLabel=FL[q.field]||q.field||'All fields';
+      const typeColor={technical:'#e8a023',behavioral:'#8b5cf6',scenario:'#10b981',cv_based:'#06b6d4',general:'#6b7280'};
+      const col=typeColor[q.question_type]||'#6b7280';
+      row.innerHTML=`
+        <div class="flex items-start justify-between gap-2">
+          <div class="flex-1">
+            <div class="flex flex-wrap gap-1 mb-1">
+              <span class="text-[9px] px-1.5 py-0.5 rounded font-bold" style="background:${col}22;color:${col}">${q.question_type||'general'}</span>
+              <span class="text-[9px] px-1.5 py-0.5 rounded" style="background:rgba(124,58,237,.12);color:#a78bfa">${esc(fieldLabel)}</span>
+              ${q.company?`<span class="text-[9px] px-1.5 py-0.5 rounded" style="background:rgba(245,158,11,.1);color:#fbbf24">🏢 ${esc(q.company)}</span>`:''}
+              <span class="text-[9px] px-1.5 py-0.5 rounded ${q.is_active?'text-emerald-400':'text-slate-500'}" style="background:${q.is_active?'rgba(16,185,129,.1)':'rgba(107,114,128,.1)'}">${q.is_active?'Active':'Off'}</span>
+            </div>
+            <p class="text-xs text-slate-200 leading-relaxed">${esc(q.question)}</p>
+          </div>
+          <div class="flex gap-1 shrink-0">
+            <button onclick="toggleCustomQ('${q.id}',${!q.is_active})" class="text-[9px] px-2 py-1 rounded font-semibold transition" style="background:rgba(124,58,237,.12);color:#a78bfa;border:1px solid rgba(124,58,237,.2)">${q.is_active?'Disable':'Enable'}</button>
+            <button onclick="deleteCustomQ('${q.id}')" class="text-[9px] px-2 py-1 rounded font-semibold" style="background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.2)"><i class="fa-solid fa-trash"></i></button>
+          </div>
+        </div>`;
+      el.appendChild(row);
+    });
+  }catch(e){
+    el.innerHTML='<div class="p-4 text-center text-xs text-slate-500">Could not load — run the SQL migration first.</div>';
+  }
+}
+
+async function addCustomQuestion(){
+  const q=$('#cq-text')?.value.trim();
+  const field=$('#cq-field')?.value||'';
+  const company=$('#cq-company')?.value.trim()||'';
+  const qtype=$('#cq-type')?.value||'general';
+  if(!q||q.length<10){toast('Write a proper question first.','err');return}
+  const{error}=await sb.from('custom_questions').insert({
+    question:q,field:field||null,company:company||null,
+    question_type:qtype,is_active:true,created_by:S.user.id
+  });
+  if(error){toast('Failed: '+error.message,'err');return}
+  $(`#cq-text`).value='';$(`#cq-company`).value='';
+  toast('Question added!','ok');loadCustomQuestions();
+}
+
+async function toggleCustomQ(id,active){
+  await sb.from('custom_questions').update({is_active:active}).eq('id',id);
+  toast(active?'Question enabled':'Question disabled','ok');loadCustomQuestions();
+}
+async function deleteCustomQ(id){
+  if(!confirm('Delete this custom question?'))return;
+  await sb.from('custom_questions').delete().eq('id',id);
+  toast('Deleted.','ok');loadCustomQuestions();
 }
 
 async function replyAdminQuestion(id){
@@ -1974,8 +2050,26 @@ async function startInt(){
   await apiHealth();
   S.conversation=[];S.currentQ=0;S.teamIdx=0;S.ending=false;S.currentSessionId=null;
   S.sessionPool=null;S.sessionPanel=null;S._finalising=false;
+  S.customQuestions=[]; // will be populated below
   S.totalQ=parseInt($$('#qcount-sel button[data-sel="1"]')[0]?.dataset.q||'12');
   S.questionArc=buildArc(S.totalQ);
+
+  // Fetch admin custom questions for this field + company (non-blocking)
+  try{
+    let cqQuery=sb.from('custom_questions')
+      .select('question,question_type,company,field')
+      .eq('is_active',true)
+      .or(`field.eq.${S.field},field.is.null`);
+    const{data:cqs}=await cqQuery;
+    S.customQuestions=(cqs||[]).filter(q=>{
+      if(q.company&&S.company){
+        return q.company.toLowerCase().includes(S.company.toLowerCase())||
+               S.company.toLowerCase().includes(q.company.toLowerCase());
+      }
+      return true; // field-only questions always included
+    }).map(q=>q.question);
+  }catch(e){S.customQuestions=[];}
+
   $(`#transcript`).innerHTML='';updateProgress();showScreen('interview');
   $(`#d-field`).textContent=S.fieldLabel;$(`#d-eng`).textContent=S.serverUp?'LLM':'Built-in';
   S.currentIV=getCurrentInterviewer();
@@ -2060,11 +2154,19 @@ async function beginInterview(){
   S.conversation.push({role:'ai',text:greeting,interviewer:S.currentIV.name});
   addMessage('ai',greeting,false);
   setPhase('speaking');
-  // Media (mic + camera) already initialised in _proceedFromOverlay (inside user gesture).
-  // startMedia() here is a no-op if streams are already set up.
+  // Media already set up in _proceedFromOverlay. startMedia() is a no-op if streams exist.
   await startMedia();
+
+  // ── CRITICAL: ensure speechSynthesis is fully unblocked before first utterance ──
+  // On Chrome/Android the browser sometimes suspends synthesis between async calls.
+  // Cancel+resume here guarantees it's in a playing state when we speak.
+  try{
+    window.speechSynthesis.cancel();
+    await sl(80); // let cancel flush
+    window.speechSynthesis.resume();
+  }catch(e){}
+
   await tts.speak(greeting,vc);
-  // After greeting, go to listening phase so user can tap the mic button
   if(!S.ending)await startListening();
 }
 
@@ -2209,7 +2311,9 @@ async function processAnswer(text){
     conversation:S.conversation,field:S.field,fieldLabel:S.fieldLabel,
     name:S.name,cvData:S.cvData,interviewer:S.currentIV,
     currentQ:S.currentQ,totalQ:S.totalQ,questionArc:S.questionArc,
-    program:S.profile?.program||'',internshipInfo:S.internshipInfo,hasInternship:S.hasInternship
+    program:S.profile?.program||'',internshipInfo:S.internshipInfo,hasInternship:S.hasInternship,
+    targetCompany:S.company||'',
+    customQuestions:S.customQuestions||[]
   }).catch(()=>null):Promise.resolve(null);
 
   const analysisPromise=S.serverUp&&text.trim().length>8?fetch(getAPI()+'/api/analyse-answer',{

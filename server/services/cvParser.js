@@ -145,36 +145,60 @@ async function parseCV(filePath, mimetype, field) {
     throw new Error('Unsupported file type. Upload PDF or DOCX.');
   }
 
-  text = text.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+  // Preserve some line structure for section detection, then normalise whitespace
+  const rawLines = text.split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
+  text = rawLines.join(' ').replace(/\s+/g, ' ').trim();
   const lowerText = text.toLowerCase();
 
-  // Extract skills
+  // ── Skills ──────────────────────────────────────────────────────────────
   const fieldSkills = (SKILLS_DB[field] || []).filter(s => lowerText.includes(s.toLowerCase()));
   const generalSkills = SKILLS_DB.general.filter(s => lowerText.includes(s.toLowerCase()));
   const allSkills = [...new Set([...fieldSkills, ...generalSkills])];
 
-  // Split into sentences
+  // ── Split into rich sentences ────────────────────────────────────────────
   const sentences = text.split(/[.!?\n]+/)
     .map(s => s.trim())
-    .filter(s => s.length > 15 && s.split(/\s+/).length > 4);
+    .filter(s => s.length > 12 && s.split(/\s+/).length > 3);
 
-  // Extract projects
+  // ── Projects ─────────────────────────────────────────────────────────────
   const projects = sentences
-    .filter(s => /project|developed|designed|built|created|implemented|prototype|thesis|final year|research|constructed|fabricated/i.test(s))
-    .map(s => s.length > 200 ? s.substring(0, 197) + '...' : s)
+    .filter(s => /project|developed|designed|built|created|implemented|prototype|thesis|final.?year|dissertation|research|constructed|fabricated|system|application|software/i.test(s))
+    .map(s => s.length > 220 ? s.substring(0, 217) + '...' : s)
+    .slice(0, 6);
+
+  // ── Experience ────────────────────────────────────────────────────────────
+  const experience = sentences
+    .filter(s => /internship|intern|attachment|company|industry|worked.?at|employed|position|role|responsib|volunteer|assistant|national.?service|placement/i.test(s))
+    .map(s => s.length > 220 ? s.substring(0, 217) + '...' : s)
     .slice(0, 5);
 
-  // Extract experience
-  const experience = sentences
-    .filter(s => /internship|intern|attachment|company|industry|worked at|employed|position|role|responsib|volunteer|assistant/i.test(s))
+  // ── Education ─────────────────────────────────────────────────────────────
+  const education = sentences
+    .filter(s => /university|college|polytechnic|degree|bsc|hnd|diploma|graduated|cgpa|gpa|class|honour|distinction|studying|studied/i.test(s))
     .map(s => s.length > 200 ? s.substring(0, 197) + '...' : s)
     .slice(0, 4);
 
+  // ── Achievements / Awards ────────────────────────────────────────────────
+  const achievements = sentences
+    .filter(s => /award|achiev|won|winner|first|best|excellence|honour|scholarship|prize|certif|recognition|dean|merit/i.test(s))
+    .map(s => s.length > 200 ? s.substring(0, 197) + '...' : s)
+    .slice(0, 4);
+
+  // ── Raw summary — first 500 chars of CV for LLM context ──────────────────
+  // Try to find an objective/summary/profile section first
+  const summaryMatch = text.match(/(?:objective|summary|profile|about\s+me)[:\s]+(.{50,500})/i);
+  const rawSummary = summaryMatch
+    ? summaryMatch[1].trim().substring(0, 500)
+    : text.substring(0, 500);
+
   return {
-    text: text.substring(0, 4000),
+    text: text.substring(0, 5000),
     skills: allSkills,
     projects,
     experience,
+    education,
+    achievements,
+    rawSummary,
     wordCount: text.split(/\s+/).filter(Boolean).length,
   };
 }
