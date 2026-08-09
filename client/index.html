@@ -157,14 +157,79 @@ select optgroup{background:#13131f;color:#7c3aed;font-weight:700}
   .pt-safe{padding-top:max(56px,calc(48px + env(safe-area-inset-top)))}
 }
 
+/* ── MOBILE TOUCH OPTIMIZATIONS ── */
+@media (hover: none) and (pointer: coarse) {
+  /* Touch device optimizations */
+  .ptt-btn {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  
+  /* Larger touch targets for mobile */
+  button, .btn-glow, .nl {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Remove hover effects on touch devices */
+  .nl:hover {
+    background: transparent;
+  }
+  
+  /* Enhanced button feedback for touch */
+  button:active, .btn-glow:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+}
+
+/* ── MOBILE ORIENTATION OPTIMIZATIONS ── */
+@media (orientation: portrait) {
+  .ta {
+    max-height: 40vh;
+  }
+  
+  .vid-prev {
+    width: 100px;
+    height: 75px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .ta {
+    max-height: 25vh;
+  }
+  
+  .aw {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .ptt-btn {
+    width: 48px;
+    height: 48px;
+  }
+}
+
 /* ── RESPONSIVE ── */
 @media(max-width:480px){
   .md{padding:6px 4px}.mdi{font-size:.95rem}.sc-n{font-size:1.4rem}
   .vid-prev{width:88px;height:66px;bottom:66px;left:8px}
   .hide-sm{display:none!important}
   .ta{max-height:32vh}
+  /* Enhanced mobile optimizations */
+  .aw{width:80px;height:80px}
+  .ac{font-size:1.2rem}
+  .ptt-btn{width:64px;height:64px;font-size:1.5rem}
+  .sba{width:2px;height:3px}
+  #audio-canvas{height:60px}
 }
-@media(max-width:360px){.md{padding:5px 2px}.mdi{font-size:.8rem}.mdl{font-size:.55rem}}
+@media(max-width:360px){.md{padding:5px 2px}.mdi{font-size:.8rem}.mdl{font-size:.55rem}
+  /* Extra small mobile optimizations */
+  .aw{width:70px;height:70px}
+  .ac{font-size:1rem}
+  .ptt-btn{width:56px;height:56px;font-size:1.2rem}
+}
 @media(prefers-reduced-motion:reduce){.pt,.ar,.sba{animation:none!important}.ac.th{animation:none!important}.rec-dot{animation:none!important}*{transition-duration:.01ms!important}}
 
 /* ── PUSH-TO-TALK MIC BUTTON ── */

@@ -472,6 +472,13 @@ function preprocessTTS(text) {
   if (!text) return text;
   let t = text;
 
+  // ── Mobile optimization: Shorten text for mobile TTS ─────────────────────
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  if (isMobile && t.length > 300) {
+    // Slightly shorten long responses for mobile to prevent TTS issues
+    t = t.replace(/\s+/g, ' ').trim();
+  }
+
   // ── Titles: expand abbreviations so TTS doesn't spell them out ──────────
   // Order matters: longer/specific patterns first
   t = t.replace(/\bIng\.\s*Prof\.\s*/g, 'Engineer Professor ');
