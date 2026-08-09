@@ -331,20 +331,37 @@ async function handleLogin(){
   if(!e||!p){showAE('Please fill in both email and password.');return}
   $(`#auth-err`).classList.add('hidden');
   if(btn){btn.disabled=true;btn.textContent='Signing in...'}
-  const{data,error}=await sb.auth.signInWithPassword({email:e,password:p});
-  if(btn){btn.disabled=false;btn.textContent='Sign In'}
-  if(error){
-    // Give friendlier messages for common errors
-    if(error.message.includes('Invalid login')||error.message.includes('invalid_credentials'))
-      showAE('Incorrect email or password. Please check and try again.');
-    else if(error.message.includes('Email not confirmed'))
-      showAE('Please verify your email first. Check your inbox for a confirmation link.');
-    else
-      showAE(error.message);
-    return;
+  
+  console.log('Attempting login with email:', e);
+  
+  try {
+    const{data,error}=await sb.auth.signInWithPassword({email:e,password:p});
+    console.log('Login response:', {data, error});
+    
+    if(btn){btn.disabled=false;btn.textContent='Sign In'}
+    if(error){
+      console.error('Login error:', error);
+      // Give friendlier messages for common errors
+      if(error.message.includes('Invalid login')||error.message.includes('invalid_credentials'))
+        showAE('Incorrect email or password. Please check and try again.');
+      else if(error.message.includes('Email not confirmed'))
+        showAE('Please verify your email first. Check your inbox for a confirmation link.');
+      else
+        showAE(error.message);
+      return;
+    }
+    // If we have a session, onAuthStateChange fires — nothing else needed here
+    if(!data?.session){
+      console.error('No session in login response');
+      showAE('Sign in failed. Please try again.');
+    } else {
+      console.log('Login successful, session established');
+    }
+  } catch (err) {
+    console.error('Login exception:', err);
+    if(btn){btn.disabled=false;btn.textContent='Sign In'}
+    showAE('Connection error. Please check your internet and try again.');
   }
-  // If we have a session, onAuthStateChange fires — nothing else needed here
-  if(!data?.session)showAE('Sign in failed. Please try again.');
 }
 
 async function handleSignup(){
@@ -368,41 +385,55 @@ async function handleSignup(){
   $(`#auth-err`).classList.add('hidden');
   if(btn){btn.disabled=true;btn.textContent='Creating account...'}
 
-  const{data,error}=await sb.auth.signUp({email:e,password:p,options:{data:{
-    name:n,university:u,program:pr,program_category:progCategory
-  }}});
+  console.log('Attempting signup with email:', e, 'name:', n);
 
-  if(btn){btn.disabled=false;btn.textContent='Create Account'}
+  try {
+    const{data,error}=await sb.auth.signUp({email:e,password:p,options:{data:{
+      name:n,university:u,program:pr,program_category:progCategory
+    }}});
+    
+    console.log('Signup response:', {data, error});
 
-  if(error){
-    if(error.message.includes('already registered')||error.message.includes('already been registered'))
-      showAE('This email is already registered. Try signing in instead.');
-    else
-      showAE(error.message);
-    return;
-  }
+    if(btn){btn.disabled=false;btn.textContent='Create Account'}
 
-  // Clear form fields
-  ['su-name','su-prog-other','su-email','su-pass'].forEach(id=>{
-    const el=$(`#${id}`);if(el)el.value='';
-  });
-  $(`#su-uni`).value='';$(`#su-prog`).value='';
-  $(`#su-uni-other`)?.classList.add('hidden');
-  $(`#su-prog-other`)?.classList.add('hidden');
+    if(error){
+      console.error('Signup error:', error);
+      if(error.message.includes('already registered')||error.message.includes('already been registered'))
+        showAE('This email is already registered. Try signing in instead.');
+      else
+        showAE(error.message);
+      return;
+    }
 
-  if(data?.user&&data.session){
-    // Email confirmation is OFF — user is signed in immediately
-    toast('Welcome to NS Interview Prep!','ok');
-    // onAuthStateChange will handle navigation
-  } else if(data?.user&&!data.session){
-    // Email confirmation is ON — need to verify
-    showAE('');
-    $(`#auth-err`).innerHTML=`<i class="fa-solid fa-envelope mt-0.5 shrink-0" style="color:#06b6d4"></i><span style="color:#67e8f9">Account created! Check your email inbox for a verification link, then sign in.</span>`;
-    $(`#auth-err`).classList.remove('hidden');
-    switchAuthTab('login');
-  } else {
-    toast('Account created! Please sign in.','ok');
-    switchAuthTab('login');
+    // Clear form fields
+    ['su-name','su-prog-other','su-email','su-pass'].forEach(id=>{
+      const el=$(`#${id}`);if(el)el.value='';
+    });
+    $(`#su-uni`).value='';$(`#su-prog`).value='';
+    $(`#su-uni-other`)?.classList.add('hidden');
+    $(`#su-prog-other`)?.classList.add('hidden');
+
+    if(data?.user&&data.session){
+      // Email confirmation is OFF — user is signed in immediately
+      console.log('Signup successful with immediate session');
+      toast('Welcome to NS Interview Prep!','ok');
+      // onAuthStateChange will handle navigation
+    } else if(data?.user&&!data.session){
+      // Email confirmation is ON — need to verify
+      console.log('Signup successful, email confirmation required');
+      showAE('');
+      $(`#auth-err`).innerHTML=`<i class="fa-solid fa-envelope mt-0.5 shrink-0" style="color:#06b6d4"></i><span style="color:#67e8f9">Account created! Check your email inbox for a verification link, then sign in.</span>`;
+      $(`#auth-err`).classList.remove('hidden');
+      switchAuthTab('login');
+    } else {
+      console.log('Signup completed, needs manual sign in');
+      toast('Account created! Please sign in.','ok');
+      switchAuthTab('login');
+    }
+  } catch (err) {
+    console.error('Signup exception:', err);
+    if(btn){btn.disabled=false;btn.textContent='Create Account'}
+    showAE('Connection error. Please check your internet and try again.');
   }
 }
 
@@ -3552,19 +3583,25 @@ async function init(){
   let _authHandled=false;
   sb.auth.onAuthStateChange(async(event,session)=>{
     try{
+      console.log('Auth state change:', event, session ? 'Session exists' : 'No session');
+      
       if(event==='PASSWORD_RECOVERY'){showPasswordResetUI();return;}
       if(event==='SIGNED_IN'&&session){
         // Only navigate away from auth screen when user actively signs in
         if(_authHandled&&S.screen!=='auth')return;
         _authHandled=true;
+        console.log('User signed in, loading profile...');
         S.user=session.user;
         await loadProfile(session.user);
+        console.log('Profile loaded:', S.profile);
         showScreen(S.profile?.role==='admin'?'admin':'dash');
         if(S.profile?.role==='admin')loadAdmin();
         else loadDashboard();
       }else if(event==='SIGNED_OUT'||event==='USER_DELETED'){
+        console.log('User signed out');
         _authHandled=false;S.user=null;S.profile=null;showScreen('auth');
       }else if(event==='TOKEN_REFRESHED'&&session&&S.user){
+        console.log('Token refreshed');
         S.user=session.user;
       }
     }catch(err){
