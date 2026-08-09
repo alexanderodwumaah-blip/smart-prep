@@ -3421,9 +3421,20 @@ showScreen=function(n){
 // ===== EVENTS =====
 function initEvents(){
   console.log('Initializing events...');
+  
+  // Make functions globally available for onclick handlers
+  window.handleLogin = handleLogin;
+  window.handleSignup = handleSignup;
+  window.switchAuthTab = switchAuthTab;
+  window.showForgotPassword = showForgotPassword;
+  window.handleForgotPassword = handleForgotPassword;
+  window.togglePw = togglePw;
+  window.proceedToSetup = proceedToSetup;
+  
+  console.log('Functions made globally available');
   switchAuthTab('login');
   
-  // Ensure auth buttons have event listeners
+  // Ensure auth buttons have event listeners as backup
   const loginBtn=$('#btn-li');
   const signupBtn=$('#btn-su');
   const tabLogin=$('#tab-login');
@@ -3433,60 +3444,81 @@ function initEvents(){
   
   if(loginBtn){
     console.log('Login button found, adding event listener');
-    loginBtn.addEventListener('click', handleLogin);
+    loginBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      handleLogin();
+    });
   } else {
     console.error('Login button not found');
   }
   
   if(signupBtn){
     console.log('Signup button found, adding event listener');
-    signupBtn.addEventListener('click', handleSignup);
+    signupBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      handleSignup();
+    });
   } else {
     console.error('Signup button not found');
   }
   
   if(tabLogin){
     console.log('Login tab found, adding event listener');
-    tabLogin.addEventListener('click', () => switchAuthTab('login'));
+    tabLogin.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchAuthTab('login');
+    });
   }
   
   if(tabSignup){
     console.log('Signup tab found, adding event listener');
-    tabSignup.addEventListener('click', () => switchAuthTab('signup'));
+    tabSignup.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchAuthTab('signup');
+    });
   }
   
   if(forgotBtn){
     console.log('Forgot password button found, adding event listener');
-    forgotBtn.addEventListener('click', handleForgotPassword);
+    forgotBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      handleForgotPassword();
+    });
   }
   
   if(startSetupBtn){
     console.log('Start setup button found, adding event listener');
-    startSetupBtn.addEventListener('click', proceedToSetup);
+    startSetupBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      proceedToSetup();
+    });
   }
   
   const forgotLinkBtn=$('#btn-forgot');
   if(forgotLinkBtn){
     console.log('Forgot password link found, adding event listener');
-    forgotLinkBtn.addEventListener('click', showForgotPassword);
+    forgotLinkBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      showForgotPassword();
+    });
   }
   
   const backToLoginBtn=$('#btn-back-login');
   if(backToLoginBtn){
     console.log('Back to login button found, adding event listener');
-    backToLoginBtn.addEventListener('click', () => switchAuthTab('login'));
-  }
-  
-  const forgotPasswordBtn=$('#btn-fp');
-  if(forgotPasswordBtn){
-    console.log('Forgot password submit button found, adding event listener');
-    forgotPasswordBtn.addEventListener('click', handleForgotPassword);
+    backToLoginBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchAuthTab('login');
+    });
   }
   
   const toSetupBtn=$('#btn-to-setup');
   if(toSetupBtn){
     console.log('To setup button found, adding event listener');
-    toSetupBtn.addEventListener('click', proceedToSetup);
+    toSetupBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      proceedToSetup();
+    });
   }
   
   console.log('Event initialization complete');
@@ -3495,27 +3527,6 @@ function initEvents(){
   document.querySelectorAll('[data-pw-toggle]').forEach(btn => {
     const fieldId = btn.dataset.pwToggle;
     btn.addEventListener('click', () => togglePw(fieldId, btn));
-  });
-  
-  // Handle remaining onclick handlers by adding event listeners dynamically
-  const onclickHandlers = {
-    'showForgotPassword': showForgotPassword,
-    'switchAuthTab': switchAuthTab,
-    'showScreen': showScreen,
-    'refreshDailyQ': refreshDailyQ,
-    'submitDailyQ': submitDailyQ,
-    'addCustomQuestion': addCustomQuestion,
-    'toggleCatBtn': toggleCatBtn,
-    'toggleFieldBtn': toggleFieldBtn,
-  };
-  
-  // Convert inline onclick to event listeners
-  document.querySelectorAll('[onclick]').forEach(el => {
-    const onclickAttr = el.getAttribute('onclick');
-    if (onclickAttr) {
-      // Don't remove onclick yet, but log it for debugging
-      console.log('Found onclick:', onclickAttr);
-    }
   });
   
   // Mode selector

@@ -283,8 +283,8 @@ select optgroup{background:#13131f;color:#7c3aed;font-weight:700}
   </div>
   <div class="rounded-2xl p-5" style="background:rgba(19,19,31,.95);border:1px solid #2d2d4e;backdrop-filter:blur(12px)">
     <div class="flex mb-4 rounded-xl p-0.5" style="background:#1a1a2e">
-      <button class="flex-1 py-2 rounded-lg text-sm font-semibold transition" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff" id="tab-login">Sign In</button>
-      <button class="flex-1 py-2 rounded-lg text-sm font-semibold transition text-mut hover:text-white" id="tab-signup">Create Account</button>
+      <button class="flex-1 py-2 rounded-lg text-sm font-semibold transition" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff" id="tab-login" onclick="switchAuthTab('login')">Sign In</button>
+      <button class="flex-1 py-2 rounded-lg text-sm font-semibold transition text-mut hover:text-white" id="tab-signup" onclick="switchAuthTab('signup')">Create Account</button>
     </div>
     <div id="auth-err" class="hidden pw text-xs mb-3"></div>
     <!-- LOGIN -->
