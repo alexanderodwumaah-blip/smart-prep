@@ -490,6 +490,23 @@ function preprocessTTS(text) {
   t = t.replace(/\bMs\.\s*/g, 'Miz ');
   t = t.replace(/\bMr\.\s*/g, 'Mister ');
 
+  // ── Natural speech enhancements ──────────────────────────────────────
+  // Add natural pauses for commas and other punctuation
+  t = t.replace(/,/g, ', ');
+  t = t.replace(/;/g, '; ');
+  
+  // Emphasize important words by adding slight pauses
+  t = t.replace(/\b(please|welcome|thank|congratulations|excellent|great|good)\b/gi, ' $1 ');
+  
+  // Expand common contractions for more natural speech
+  t = t.replace(/\bcan't\b/gi, 'cannot');
+  t = t.replace(/\bwon't\b/gi, 'will not');
+  t = t.replace(/\bdon't\b/gi, 'do not');
+  t = t.replace(/\bdidn't\b/gi, 'did not');
+  t = t.replace(/\bdoesn't\b/gi, 'does not');
+  t = t.replace(/\bisn't\b/gi, 'is not');
+  t = t.replace(/\bare aren't\b/gi, 'are not');
+
   // ── Ghanaian name pronunciations (phonetic hints for Web Speech) ──────────
   // Key: common Ghanaian names that TTS mispronounces badly
   const ghNames = {
@@ -564,11 +581,12 @@ const tts={
     const ld=()=>{
       const v=this.syn.getVoices().filter(x=>x.lang.startsWith('en'));
       if(!v.length)return;
-      this.mV=v.find(x=>/google.*uk.*male|daniel|google.*en.*male/i.test(x.name))
+      // Enhanced voice selection with more natural options
+      this.mV=v.find(x=>/google.*uk.*male|daniel|google.*en.*male|microsoft.*david|natural.*male/i.test(x.name))
              ||v.find(x=>/male/i.test(x.name))
              ||v.find(x=>x.lang==='en-GB')
              ||v[0];
-      this.fV=v.find(x=>/google.*uk.*female|samantha|karen|moira|tessa/i.test(x.name))
+      this.fV=v.find(x=>/google.*uk.*female|samantha|karen|moira|tessa|microsoft.*zira|natural.*female/i.test(x.name))
              ||v.find(x=>/female/i.test(x.name))
              ||v.find(x=>x.lang==='en-GB')
              ||v[1]||v[0];
@@ -591,9 +609,9 @@ const tts={
         const v=this.syn.getVoices().filter(x=>x.lang.startsWith('en'));
         if(v.length){
           this._ready=true;
-          // re-pick best voices
-          this.mV=v.find(x=>/google.*uk.*male|daniel|google.*en.*male/i.test(x.name))||v.find(x=>/male/i.test(x.name))||v.find(x=>x.lang==='en-GB')||v[0];
-          this.fV=v.find(x=>/google.*uk.*female|samantha|karen|moira|tessa/i.test(x.name))||v.find(x=>/female/i.test(x.name))||v.find(x=>x.lang==='en-GB')||v[1]||v[0];
+          // re-pick best voices with enhanced selection
+          this.mV=v.find(x=>/google.*uk.*male|daniel|google.*en.*male|microsoft.*david|natural.*male/i.test(x.name))||v.find(x=>/male/i.test(x.name))||v.find(x=>x.lang==='en-GB')||v[0];
+          this.fV=v.find(x=>/google.*uk.*female|samantha|karen|moira|tessa|microsoft.*zira|natural.*female/i.test(x.name))||v.find(x=>/female/i.test(x.name))||v.find(x=>x.lang==='en-GB')||v[1]||v[0];
           clearInterval(check);resolve();
         }
         if(++attempts>40){clearInterval(check);resolve();}// give up after 4s
@@ -610,12 +628,14 @@ const tts={
     if(!S.isSpeaking)return; // was interrupted while waiting
 
     const processed = preprocessTTS(text);
+    // Enhanced sentence segmentation for more natural pauses
     const segs=processed.match(/[^.!?]+[.!?]+(?:\s|$)|[^.!?]+$/g)||[processed];
     for(let i=0;i<segs.length;i++){
       if(!S.isSpeaking)break;
       const s=segs[i].trim();if(!s)continue;
       await this._utterance(s,cfg);
-      if(i<segs.length-1&&S.isSpeaking)await sl(150+Math.random()*120);
+      // More natural pauses between sentences
+      if(i<segs.length-1&&S.isSpeaking)await sl(200+Math.random()*150);
     }
     S.isSpeaking=false;
   },
@@ -624,9 +644,15 @@ const tts={
     return new Promise(resolve=>{
       const u=new SpeechSynthesisUtterance(text);
       u.voice=this._pickVoice(cfg.gender);
-      u.pitch=cfg.pitch+(Math.random()*0.04-0.02);
-      u.rate=cfg.rate+(Math.random()*0.02-0.01);
+      // Enhanced prosody for more natural speech
+      u.pitch=cfg.pitch+(Math.random()*0.06-0.03); // Slightly more pitch variation
+      u.rate=cfg.rate+(Math.random()*0.03-0.015); // Slightly more rate variation
       u.volume=1;
+      
+      // Add natural speech patterns
+      u.pitch = Math.max(0.8, Math.min(1.2, u.pitch)); // Clamp pitch to natural range
+      u.rate = Math.max(0.85, Math.min(1.15, u.rate)); // Clamp rate to natural range
+      
       let resolved=false;
       const done=()=>{if(!resolved){resolved=true;clearTimeout(timer);resolve();}};
       // Per-character timeout + absolute minimum
@@ -1292,9 +1318,13 @@ function drawVisualizer(){
     S.analyser.getByteFrequencyData(data);
     ctx.clearRect(0,0,c.width,c.height);
     const bw=c.width/bins*2.2;let px=0;
+    // Enhanced visualizer with gradient colors
     for(let i=0;i<bins;i++){
       const h=Math.max(2,(data[i]/255)*c.height*.95),a=0.3+(data[i]/255)*0.7;
-      ctx.fillStyle=`rgba(16,185,129,${a})`;ctx.beginPath();ctx.roundRect(px,c.height-h,bw-1.5,h,2);ctx.fill();px+=bw;
+      // Dynamic color based on frequency
+      const hue = 140 + (i/bins) * 60; // Green to blue range
+      ctx.fillStyle=`hsla(${hue}, 70%, 50%, ${a})`;
+      ctx.beginPath();ctx.roundRect(px,c.height-h,bw-1.5,h,2);ctx.fill();px+=bw;
     }
   }
   frame();
@@ -1965,7 +1995,7 @@ function setPhase(p){
       rings.forEach(r=>{const el=$(r);if(el)el.classList.add('pu')});
       if(waves)waves.classList.add('on');
       if(icon)icon.className='fa-solid fa-volume-high';
-      if(statusTxt){statusTxt.textContent='Speaking...';statusTxt.style.color='#e8a023'}
+      if(statusTxt){statusTxt.textContent='Interviewer is speaking...';statusTxt.style.color='#e8a023'}
       if(ivDot)ivDot.style.background='#e8a023';
       if(ivStatus)ivStatus.textContent='Speaking...';
       setPTTState('speaking');
@@ -1978,7 +2008,7 @@ function setPhase(p){
       drawVisualizer();
       if(statusTxt){statusTxt.textContent='Your turn — tap mic to answer';statusTxt.style.color='#10b981'}
       if(ivDot)ivDot.style.background='#10b981';
-      if(ivStatus)ivStatus.textContent='Listening...';
+      if(ivStatus)ivStatus.textContent='Your turn to speak';
       setPTTState('idle');
       break;
     case'processing':
@@ -2156,18 +2186,27 @@ async function beginInterview(){
   setPhase('speaking');
   // Media already set up in _proceedFromOverlay. startMedia() is a no-op if streams exist.
   await startMedia();
+  startIVTimer(); // start interview timer
 
-  // ── CRITICAL: ensure speechSynthesis is fully unblocked before first utterance ──
-  // On Chrome/Android the browser sometimes suspends synthesis between async calls.
-  // Cancel+resume here guarantees it's in a playing state when we speak.
+  // ── IMMEDIATE SPEAKING: Ensure AI speaks right away without delay ──
+  // Enhanced speech synthesis unlock with immediate speaking
   try{
     window.speechSynthesis.cancel();
-    await sl(80); // let cancel flush
+    // Additional unlock utterance with minimal delay
+    const unlock = new SpeechSynthesisUtterance('');
+    unlock.volume = 0;
+    window.speechSynthesis.speak(unlock);
     window.speechSynthesis.resume();
+    
+    // Small delay to ensure unlock is processed
+    await sl(50);
   }catch(e){}
 
-  await tts.speak(greeting,vc);
-  if(!S.ending)await startListening();
+  // Speak immediately without additional delays
+  playSound('start'); // Play start sound
+  tts.speak(greeting,vc).then(() => {
+    if(!S.ending) startListening();
+  });
 }
 
 async function startListening(){
@@ -2267,6 +2306,9 @@ async function processAnswer(text){
   let question=null;
   const currentQType=S.questionArc[S.currentQ-1]||'followup';
 
+  // Show immediate analysis feedback
+  showAnalysisProgress();
+
   if(S.currentQ>=S.totalQ){
     // Last question — just analyse, no need to generate next question
     if(S.serverUp&&text.trim().length>8){
@@ -2277,6 +2319,7 @@ async function processAnswer(text){
         }).then(r=>r.ok?r.json():null);
       }catch(e){}
     }
+    hideAnalysisProgress();
     if(analysis?.acknowledgement){
       setPhase('speaking');addMessage('ai',analysis.acknowledgement,false);
       S.conversation.push({role:'ai',text:analysis.acknowledgement,interviewer:S.currentIV.name});
@@ -2324,6 +2367,8 @@ async function processAnswer(text){
   // Wait for both in parallel
   [question,analysis]=await Promise.all([questionPromise,analysisPromise]);
   if(!question)question=fallbackQuestion(text,S.field,S.currentIV,S.currentQ);
+  
+  hideAnalysisProgress();
 
   // Speak acknowledgement first (optional correction for wrong technical answers)
   if(analysis){
@@ -2347,6 +2392,7 @@ async function processAnswer(text){
   S.conversation.push({role:'ai',text:question,interviewer:S.currentIV.name});
   addMessage('ai',question,false);
   setPhase('speaking');
+  playSound('question'); // Play question sound
   await tts.speak(question,getVoiceCfg());
   if(!S.ending)await startListening();
 }
@@ -2363,8 +2409,11 @@ async function endInterview(){
   addMessage('ai',closing,false);
   S.conversation.push({role:'ai',text:closing,interviewer:S.currentIV.name});
   setPhase('speaking');await tts.speak(closing,getVoiceCfg());await sl(400);setPhase('done');
+  playSound('success'); // Play success sound
   // Stop video recording
   const _videoUrl=await stopVideoRecording();
+  // Generate interview summary
+  generateInterviewSummary();
   // ── Open student Q&A modal ─────────────────────────────────────────────────
   S.studentQPhase=true;S.studentQCount=0;S.studentQMax=2;
   openSQModal();
@@ -2487,8 +2536,25 @@ function showResults(g){
   const circ=2*Math.PI*59;
   setTimeout(()=>{const arc=$('#sc-ar');if(arc)arc.style.strokeDashoffset=circ*(1-g.overall/100)},100);
   animN($(`#sc-n`),0,g.overall,1200);
-  // Check if student earned a certificate
   checkCertificate(g.overall);
+  updateStreakOnComplete();
+  playSound('success'); // Play success sound when showing results
+  generateInterviewSummary(); // Generate interview summary
+
+  // Grade badge
+  const grade=g.overall>=90?{l:'S',css:'grade-s',tip:'Outstanding — interview ready!'}:
+               g.overall>=80?{l:'A',css:'grade-a',tip:'Excellent performance!'}:
+               g.overall>=70?{l:'B',css:'grade-b',tip:'Good — above average'}:
+               g.overall>=60?{l:'C',css:'grade-c',tip:'Decent — room to grow'}:
+               g.overall>=50?{l:'D',css:'grade-d',tip:'Needs work — keep practising'}:
+               {l:'E',css:'grade-d',tip:'More preparation needed'};
+  const gb=$('#r-grade-badge');
+  const gl=$('#r-grade-label');
+  const gt=$('#r-grade-tip');
+  if(gb){gb.className='grade-badge '+grade.css;gb.textContent=grade.l}
+  if(gl)gl.textContent='Grade '+grade.l;
+  if(gt)gt.textContent=grade.tip;
+
   const subs=[{l:'Communication',s:g.communication,c:'#3b82f6',w:'25%'},{l:'Technical',s:g.technical,c:'#e8a023',w:'35%'},{l:'Relevance',s:g.relevance,c:'#8b5cf6',w:'20%'},{l:'Confidence',s:g.confidence,c:'#22c55e',w:'20%'}];
   const el=$('#r-subs');el.innerHTML='';
   subs.forEach((s,i)=>{const d=document.createElement('div');d.innerHTML=`<div class="flex justify-between items-center mb-0.5"><span class="text-[10px] text-gray-400">${s.l} <span class="text-[9px] text-mut">${s.w}</span></span><span class="text-[10px] font-semibold" style="color:${s.c}">${s.s}</span></div><div class="bt"><div class="bf" style="width:0%;background:${s.c}" id="rb-${i}"></div></div>`;el.appendChild(d);setTimeout(()=>{const bf=$(`#rb-${i}`);if(bf)bf.style.width=s.s+'%'},200+i*150)});
@@ -2496,7 +2562,6 @@ function showResults(g){
   const il=$('#r-imp');il.innerHTML='';
   (g.improvements||[]).forEach(im=>{const li=document.createElement('li');li.className='flex items-start gap-1.5 text-[11px]';li.innerHTML=`<i class="fa-solid fa-arrow-right text-acc text-[9px] mt-0.5 shrink-0"></i><span>${esc(im)}</span>`;il.appendChild(li)});
   const td=$('#r-trans');td.innerHTML='';
-  // Build a name→color map from whichever pool was used this session
   const ivColorMap={};
   (S.sessionPool||[]).forEach(iv=>{ivColorMap[iv.name]=iv.color||'#888'});
   (S.sessionPanel||TM||[]).forEach(iv=>{ivColorMap[iv.name]=iv.color||'#888'});
@@ -2511,6 +2576,8 @@ function showResults(g){
     td.appendChild(d);
   });
   $(`#r-sub`).textContent=S.mode==='team'?'Panel interview — 4 interviewers':'Mock interview — '+S.totalQ+' questions';
+  // Store last result for share
+  S._lastResult={score:g.overall,grade:grade.l,field:S.fieldLabel,name:S.name};
 }
 
 // ===== CV UPLOAD =====
@@ -2696,6 +2763,25 @@ function showCoachTip(quality){
   S._coachTimer=setTimeout(()=>tip.classList.add('hidden'),4500);
 }
 
+// ===== ANALYSIS PROGRESS FEEDBACK =====
+function showAnalysisProgress(){
+  const progress=$('#analysis-progress');if(!progress)return;
+  progress.classList.remove('hidden');
+  const messages=['Analyzing your answer...','Evaluating technical depth...','Checking relevance...','Preparing next question...'];
+  let i=0;
+  S._analysisInterval=setInterval(()=>{
+    const msgEl=$('#analysis-message');
+    if(msgEl)msgEl.textContent=messages[i%messages.length];
+    i++;
+  },800);
+}
+
+function hideAnalysisProgress(){
+  const progress=$('#analysis-progress');if(!progress)return;
+  progress.classList.add('hidden');
+  if(S._analysisInterval){clearInterval(S._analysisInterval);S._analysisInterval=null}
+}
+
 // ===== WORD COUNT METER =====
 function updateWCMeter(transcript){
   const m=$('#wc-meter'),bar=$('#wc-bar'),lbl=$('#wc-label');if(!m)return;
@@ -2705,6 +2791,16 @@ function updateWCMeter(transcript){
   else if(w<50){bar.style.background='#f59e0b';lbl.textContent=`${w}w — keep going`;lbl.style.color='#fbbf24'}
   else if(w<80){bar.style.background='#10b981';lbl.textContent=`${w}w — good ✓`;lbl.style.color='#34d399'}
   else{bar.style.background='linear-gradient(90deg,#10b981,#06b6d4)';lbl.textContent=`${w}w — excellent ✓✓`;lbl.style.color='#67e8f9'}
+  
+  // Add dynamic speaking tip based on word count
+  const tipEl=$('#speaking-tip');
+  if(tipEl){
+    if(w<15) tipEl.textContent='💡 Try to elaborate more on your points';
+    else if(w<30) tipEl.textContent='💡 Good start! Add specific examples';
+    else if(w<50) tipEl.textContent='💡 Great! Structure your answer clearly';
+    else if(w<70) tipEl.textContent='💡 Excellent! Keep the momentum';
+    else tipEl.textContent='💡 Perfect answer! Very comprehensive';
+  }
 }
 function hideWCMeter(){$('#wc-meter')?.classList.add('hidden')}
 
@@ -2723,6 +2819,561 @@ function downloadCertificate(){
   const html=`<!DOCTYPE html><html><head><title>NS Prep Certificate</title><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet"><style>*{margin:0;box-sizing:border-box}body{font-family:'Outfit',sans-serif;background:#0d0d1a;color:#e2e8f0;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}.cert{max-width:680px;width:100%;background:#13131f;border:2px solid #7c3aed;border-radius:24px;padding:48px 56px;text-align:center;box-shadow:0 0 80px rgba(124,58,237,.3)}.logo{font-size:52px;margin-bottom:10px}.stamp{font-size:11px;letter-spacing:.25em;color:#6b7280;text-transform:uppercase;margin-bottom:20px}.h1{font-size:36px;font-weight:900;background:linear-gradient(135deg,#a78bfa,#67e8f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px}.sub{font-size:13px;color:#94a3b8;margin-bottom:28px}.name{font-size:30px;font-weight:900;color:#fff;border-bottom:2px solid #7c3aed;display:inline-block;padding-bottom:6px;margin-bottom:8px}.detail{font-size:14px;color:#94a3b8;margin-bottom:24px}.score{font-size:76px;font-weight:900;background:linear-gradient(135deg,#a78bfa,#67e8f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1}.score-sub{font-size:12px;color:#6b7280;margin-bottom:24px}.tag{display:inline-block;background:rgba(124,58,237,.15);color:#a78bfa;border:1px solid rgba(124,58,237,.3);border-radius:20px;padding:4px 16px;font-size:13px;font-weight:700;margin-bottom:28px}.footer{font-size:10px;color:#374151;margin-top:24px;padding-top:16px;border-top:1px solid #1a1a2e}@media print{body{background:#fff}.cert{box-shadow:none}}</style></head><body><div class="cert"><div class="logo">🎓</div><div class="stamp">Certificate of Achievement</div><div class="h1">NS Interview Prep</div><div class="sub">This certifies that</div><div class="name">${name}</div><div class="detail">successfully completed a mock national service interview in</div><div class="tag">${field}</div><br><div>achieving a score of</div><div class="score">${score}<span style="font-size:26px">%</span></div><div class="score-sub">out of 100</div><div class="footer">Issued by NS Interview Prep · ${date}</div></div><script>window.onload=()=>setTimeout(()=>window.print(),300)</script></body></html>`;
   const w=window.open('','_blank');if(w){w.document.write(html);w.document.close()}else toast('Allow popups to download certificate.','err');
 }
+
+// ===== NEW FEATURES =====
+
+// ── Interview Timer ──────────────────────────────────────────────────────────
+let _ivTimerInterval=null;
+
+// ── Enhanced Interview Experience Features ───────────────────────────────────
+
+// Sound effects for natural feedback
+const playSound = (type) => {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    
+    switch(type) {
+      case 'start':
+        oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.1);
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.3);
+        break;
+      case 'question':
+        oscillator.frequency.setValueAtTime(300, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.2);
+        break;
+      case 'success':
+        oscillator.frequency.setValueAtTime(523, audioCtx.currentTime);
+        oscillator.frequency.setValueAtTime(659, audioCtx.currentTime + 0.1);
+        oscillator.frequency.setValueAtTime(784, audioCtx.currentTime + 0.2);
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.4);
+        break;
+    }
+  } catch(e) {
+    // Audio context not supported, silently fail
+  }
+};
+
+// ── Interview Summary Generation ─────────────────────────────────────────────
+async function generateInterviewSummary() {
+  if(!S.conversation.length) return;
+  
+  const summaryEl = $('#interview-summary');
+  if(!summaryEl) return;
+  
+  summaryEl.classList.remove('hidden');
+  summaryEl.innerHTML = '<div class="flex items-center gap-2"><i class="fa-solid fa-spinner fa-spin text-purple-400"></i><span class="text-sm text-slate-300">Generating interview summary...</span></div>';
+  
+  // Generate a basic summary from conversation
+  const totalAnswers = S.conversation.filter(c => c.role === 'student').length;
+  const totalQuestions = S.conversation.filter(c => c.role === 'ai').length;
+  const duration = $('#iv-timer')?.textContent || '0:00';
+  
+  setTimeout(() => {
+    summaryEl.innerHTML = `
+      <div class="space-y-3">
+        <h3 class="text-sm font-bold text-white mb-2">📋 Interview Summary</h3>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <div class="bg-slate-800/50 rounded-lg p-2">
+            <div class="text-slate-400">Questions Asked</div>
+            <div class="text-lg font-bold text-purple-400">${totalQuestions}</div>
+          </div>
+          <div class="bg-slate-800/50 rounded-lg p-2">
+            <div class="text-slate-400">Your Answers</div>
+            <div class="text-lg font-bold text-cyan-400">${totalAnswers}</div>
+          </div>
+          <div class="bg-slate-800/50 rounded-lg p-2">
+            <div class="text-slate-400">Duration</div>
+            <div class="text-lg font-bold text-green-400">${duration}</div>
+          </div>
+          <div class="bg-slate-800/50 rounded-lg p-2">
+            <div class="text-slate-400">Interviewer</div>
+            <div class="text-lg font-bold text-yellow-400">${S.currentIV?.name || 'AI'}</div>
+          </div>
+        </div>
+        <div class="text-xs text-slate-400 mt-2">
+          <span class="text-purple-400 font-bold">Field:</span> ${S.fieldLabel || 'General'}
+        </div>
+      </div>
+    `;
+  }, 1500);
+}
+function startIvTimer(){
+  let secs=0;
+  clearInterval(_ivTimerInterval);
+  _ivTimerInterval=setInterval(()=>{
+    secs++;
+    const m=String(Math.floor(secs/60)).padStart(2,'0');
+    const s=String(secs%60).padStart(2,'0');
+    const el=$('#iv-timer');
+    if(el){
+      el.textContent=`${m}:${s}`;
+      el.className='iv-timer'+(secs>1500?' danger':secs>1200?' warn':'');
+    }
+  },1000);
+}
+function stopIvTimer(){clearInterval(_ivTimerInterval);_ivTimerInterval=null;}
+
+// ── Interview Streak ─────────────────────────────────────────────────────────
+function updateStreakOnComplete(){
+  const today=new Date().toISOString().split('T')[0];
+  const data=JSON.parse(localStorage.getItem('ns_streak')||'{"last":"","count":0}');
+  const yesterday=new Date(Date.now()-86400000).toISOString().split('T')[0];
+  if(data.last===today){/* already recorded today */}
+  else if(data.last===yesterday){data.count++;data.last=today;}
+  else{data.count=1;data.last=today;}
+  localStorage.setItem('ns_streak',JSON.stringify(data));
+}
+function getStreak(){
+  const data=JSON.parse(localStorage.getItem('ns_streak')||'{"last":"","count":0}');
+  const today=new Date().toISOString().split('T')[0];
+  const yesterday=new Date(Date.now()-86400000).toISOString().split('T')[0];
+  if(data.last!==today&&data.last!==yesterday)return 0;
+  return data.count||0;
+}
+function renderDashStreak(){
+  const streak=getStreak();
+  const el=$('#dash-streak');
+  if(el)el.textContent=`🔥 ${streak} day streak`;
+  // Also render the daily streak badge on the daily question card
+  const badge=$('#daily-streak-badge');
+  if(badge)badge.textContent=`🔥 ${streak} day streak`;
+}
+
+// ── Motivational Banner ──────────────────────────────────────────────────────
+function showDashBanner(sessions,scores){
+  const banner=$('#dash-banner');
+  if(!banner)return;
+  const streak=getStreak();
+  let icon='🎯',title='',body='';
+  if(sessions===0){
+    icon='🚀';title='Welcome! Start your first mock interview.';
+    body='Pick a field, tap Start Interview, and let the AI interviewer assess you.';
+  }else if(streak>=3){
+    icon='🔥';title=`${streak}-day streak — you're on fire!`;
+    body='Consistency is everything. Keep practising daily.';
+  }else if(scores.length&&Math.max(...scores)>=80){
+    icon='🏆';title='You hit 80%+ — excellent work!';
+    body='Try a panel interview or increase the question count for an even bigger challenge.';
+  }else if(scores.length&&scores[scores.length-1]<50){
+    icon='💪';title='Last session was tough — that\'s okay.';
+    body='Review your feedback, focus on weak areas, and come back stronger.';
+  }else{return;}// no banner needed
+  const ti=$('#dash-banner-title'),bo=$('#dash-banner-body'),ic=$('#dash-banner-icon');
+  if(ti)ti.textContent=title;if(bo)bo.textContent=body;if(ic)ic.textContent=icon;
+  banner.classList.remove('hidden');
+}
+
+// ── Grade badge on dashboard avg score ──────────────────────────────────────
+function showDashGrade(avg){
+  const gb=$('#ds-grade-badge');if(!gb)return;
+  if(!avg||isNaN(avg)){gb.classList.add('hidden');return;}
+  const grade=avg>=90?{l:'S',css:'grade-s'}:avg>=80?{l:'A',css:'grade-a'}:
+               avg>=70?{l:'B',css:'grade-b'}:avg>=60?{l:'C',css:'grade-c'}:{l:'D',css:'grade-d'};
+  gb.className='grade-badge '+grade.css;gb.textContent=grade.l;
+  gb.style.width='28px';gb.style.height='28px';gb.style.fontSize='.75rem';
+  gb.classList.remove('hidden');
+}
+
+// ── Share Result ─────────────────────────────────────────────────────────────
+function shareResult(method){
+  const r=S._lastResult||{};
+  const score=r.score||$('#sc-n')?.textContent||'?';
+  const grade=r.grade||'';
+  const field=r.field||S.fieldLabel||'Engineering';
+  const name=r.name||S.name||'Student';
+  const text=`🎓 ${name} just scored ${score}% (Grade ${grade}) in a ${field} mock national service interview on NS Interview Prep!\n\nPractise yours at: https://smart-prep.vercel.app`;
+  if(method==='whatsapp'){
+    const url=`https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url,'_blank');
+  }else{
+    navigator.clipboard.writeText(text).then(()=>toast('Result copied to clipboard!','ok'))
+      .catch(()=>{
+        // Fallback for browsers that block clipboard
+        const ta=document.createElement('textarea');ta.value=text;
+        document.body.appendChild(ta);ta.select();document.execCommand('copy');
+        document.body.removeChild(ta);toast('Copied!','ok');
+      });
+  }
+}
+
+// ── Admin: Tab switcher ──────────────────────────────────────────────────────
+function switchAdminTab(tab){
+  ['users','questions','cq'].forEach(t=>{
+    const panel=$(`#adm-panel-${t}`);
+    const btn=$(`#adm-tab-${t}`);
+    if(panel)panel.classList.toggle('hidden',t!==tab);
+    if(btn)btn.classList.toggle('act',t===tab);
+  });
+}
+
+// ── Admin: Broadcast ─────────────────────────────────────────────────────────
+function toggleBroadcastForm(){
+  const f=$('#broadcast-form');if(f)f.classList.toggle('hidden');
+}
+async function sendBroadcast(){
+  const title=$('#bc-title')?.value.trim();
+  const body=$('#bc-body')?.value.trim();
+  const icon=$('#bc-icon')?.value||'📢';
+  if(!title||!body){toast('Title and message are required.','err');return}
+  // Store in Supabase as a broadcast record (insert into a broadcasts table if it exists,
+  // else gracefully fall back to local storage for demo purposes)
+  try{
+    const{error}=await sb.from('broadcasts').insert({
+      title,body,icon,created_by:S.user?.id,created_at:new Date().toISOString()
+    });
+    if(error)throw error;
+    toast('Broadcast sent to all students!','ok');
+  }catch(e){
+    // Table might not exist yet — store locally as a fallback demo
+    const existing=JSON.parse(localStorage.getItem('ns_broadcasts')||'[]');
+    existing.unshift({title,body,icon,created_at:new Date().toISOString()});
+    localStorage.setItem('ns_broadcasts',JSON.stringify(existing.slice(0,10)));
+    toast('Broadcast saved (run SQL migration to persist to DB).','info');
+  }
+  if($('#bc-title'))$('#bc-title').value='';
+  if($('#bc-body'))$('#bc-body').value='';
+  toggleBroadcastForm();
+}
+
+// ── Dashboard: show broadcasts to students ────────────────────────────────────
+async function loadBroadcasts(){
+  // Try Supabase first, fall back to localStorage
+  let msgs=[];
+  try{
+    const{data}=await sb.from('broadcasts').select('*').order('created_at',{ascending:false}).limit(3);
+    msgs=data||[];
+  }catch(e){
+    msgs=JSON.parse(localStorage.getItem('ns_broadcasts')||'[]').slice(0,3);
+  }
+  if(!msgs.length)return;
+  const container=$('#dash-banner');if(!container)return;
+  // Show the most recent broadcast as the motivational banner
+  const latest=msgs[0];
+  const ti=$('#dash-banner-title'),bo=$('#dash-banner-body'),ic=$('#dash-banner-icon');
+  if(ti)ti.textContent=latest.title||'Announcement';
+  if(bo)bo.textContent=latest.body||'';
+  if(ic)ic.textContent=latest.icon||'📢';
+  container.classList.remove('hidden');
+}
+
+// ── Mobile bottom nav active state ───────────────────────────────────────────
+function updateMobileNav(screen){
+  ['dash','setup','tests'].forEach(id=>{
+    const el=$(`#bnav-${id}`);
+    if(el)el.classList.toggle('act',screen===id||(screen==='setup'&&id==='setup'));
+  });
+  // Hide bottom nav on interview/results/auth screens
+  const nav=$('#mobile-bnav');
+  if(nav)nav.style.display=['interview','results','auth'].includes(screen)?'none':'flex';
+}
+
+// ── Interview timer integration ───────────────────────────────────────────────
+// Patch beginInterview to start the timer, and finalise to stop it
+const _origBeginInterview=window.beginInterview;
+
+// ── Keyboard shortcuts ────────────────────────────────────────────────────────
+function initKeyboardShortcuts(){
+  document.addEventListener('keydown',e=>{
+    // Space = PTT toggle (only during interview, not when typing in an input)
+    if(e.code==='Space'&&S.screen==='interview'&&
+       document.activeElement?.tagName!=='INPUT'&&
+       document.activeElement?.tagName!=='TEXTAREA'){
+      e.preventDefault();
+      handlePTTTap();
+    }
+    // Escape = leave interview confirm
+    if(e.code==='Escape'&&S.screen==='interview'){
+      confirmLeave();
+    }
+    // Ctrl+Enter = send typed answer
+    if((e.ctrlKey||e.metaKey)&&e.code==='Enter'&&S.screen==='interview'){
+      const t=$('#inp-txt')?.value.trim();
+      if(t){const inp=$('#inp-txt');if(inp)inp.value='';processAnswer(t);}
+    }
+  });
+}
+
+// ── Patch showScreen to update mobile nav ────────────────────────────────────
+const _origShowScreen=showScreen;
+function showScreen(n){
+  _origShowScreen(n);
+  updateMobileNav(n);
+  // Start/stop timer
+  if(n==='interview')startIvTimer();
+  else stopIvTimer();
+}
+
+// ── Patch loadDashboard to show streak + banner ───────────────────────────────
+const _origLoadDashboard=loadDashboard;
+async function loadDashboard(){
+  await _origLoadDashboard();
+  renderDashStreak();
+  // Show grade badge on avg score
+  const avgEl=$('#ds-avg');
+  if(avgEl&&avgEl.textContent!=='—')showDashGrade(parseInt(avgEl.textContent)||0);
+  // Try to show broadcast or motivational banner
+  try{ await loadBroadcasts(); }catch(e){
+    // fallback: show motivational banner based on data
+    const scores=(S.sessions||[]).map(s=>s._grade).filter(Boolean);
+    showDashBanner((S.sessions||[]).filter(s=>s.status==='completed').length, scores);
+  }
+}
+
+// ===== NEW FEATURES =====
+
+// ── Interview Timer ─────────────────────────────────────────────────────────
+let _ivTimerInterval=null;
+let _ivTimerSeconds=0;
+function startIVTimer(){
+  _ivTimerSeconds=0;
+  if(_ivTimerInterval)clearInterval(_ivTimerInterval);
+  _ivTimerInterval=setInterval(()=>{
+    _ivTimerSeconds++;
+    const m=String(Math.floor(_ivTimerSeconds/60)).padStart(2,'0');
+    const s=String(_ivTimerSeconds%60).padStart(2,'0');
+    const el=$('#iv-timer');
+    if(el){
+      el.textContent=`${m}:${s}`;
+      el.className='iv-timer'+(
+        _ivTimerSeconds>1800?' danger':
+        _ivTimerSeconds>1200?' warn':''
+      );
+    }
+  },1000);
+}
+function stopIVTimer(){
+  if(_ivTimerInterval){clearInterval(_ivTimerInterval);_ivTimerInterval=null;}
+}
+
+// ── Streak Tracker ──────────────────────────────────────────────────────────
+function getStreak(){
+  try{
+    const data=JSON.parse(localStorage.getItem('ns_streak')||'{}');
+    return{count:data.count||0,lastDate:data.lastDate||''};
+  }catch(e){return{count:0,lastDate:''};}
+}
+function updateStreakOnComplete(){
+  const today=new Date().toISOString().split('T')[0];
+  const streak=getStreak();
+  const yesterday=new Date(Date.now()-86400000).toISOString().split('T')[0];
+  let newCount=1;
+  if(streak.lastDate===yesterday)newCount=streak.count+1;
+  else if(streak.lastDate===today)newCount=streak.count; // already done today
+  localStorage.setItem('ns_streak',JSON.stringify({count:newCount,lastDate:today}));
+  return newCount;
+}
+function renderStreak(){
+  const{count,lastDate}=getStreak();
+  const today=new Date().toISOString().split('T')[0];
+  // Reset streak if more than 1 day has passed
+  const yesterday=new Date(Date.now()-86400000).toISOString().split('T')[0];
+  const active=lastDate===today||lastDate===yesterday;
+  const display=active?count:0;
+  const el=$('#dash-streak');
+  if(el)el.textContent=`🔥 ${display} day streak`;
+  const badgeEl=$('#daily-streak-badge');
+  if(badgeEl)badgeEl.textContent=`🔥 ${display} day streak`;
+}
+
+// ── Dashboard Motivational Banner ───────────────────────────────────────────
+function showDashBanner(sessions,avgScore){
+  const banner=$('#dash-banner');
+  const title=$('#dash-banner-title');
+  const body=$('#dash-banner-body');
+  const icon=$('#dash-banner-icon');
+  if(!banner)return;
+  if(!sessions||sessions===0){
+    icon.textContent='🚀';
+    title.textContent='Welcome to NS Interview Prep!';
+    body.textContent='Start your first mock interview to get a personalised score and feedback.';
+    banner.classList.remove('hidden');
+  }else if(avgScore&&avgScore<60){
+    icon.textContent='💪';
+    title.textContent='Keep practising!';
+    body.textContent=`Your average is ${avgScore}%. Aim for 70%+ — you can do it.`;
+    banner.classList.remove('hidden');
+  }else if(avgScore&&avgScore>=90){
+    icon.textContent='🏆';
+    title.textContent='Outstanding performance!';
+    body.textContent=`Average of ${avgScore}% — you're interview ready! Try a panel session next.`;
+    banner.classList.remove('hidden');
+  }else{
+    banner.classList.add('hidden');
+  }
+}
+
+// ── Dashboard Grade Badge ────────────────────────────────────────────────────
+function renderDashGrade(avg){
+  const badge=$('#ds-grade-badge');
+  if(!badge||!avg||isNaN(avg))return;
+  badge.classList.remove('hidden');
+  const g=avg>=90?{l:'S',css:'grade-s'}:avg>=80?{l:'A',css:'grade-a'}:
+           avg>=70?{l:'B',css:'grade-b'}:avg>=60?{l:'C',css:'grade-c'}:{l:'D',css:'grade-d'};
+  badge.className='grade-badge '+g.css;
+  badge.style.width='28px';badge.style.height='28px';badge.style.fontSize='.75rem';
+  badge.textContent=g.l;
+}
+
+// ── Share Result ────────────────────────────────────────────────────────────
+function shareResult(method){
+  const r=S._lastResult||{};
+  const score=r.score||$('#sc-n')?.textContent||'?';
+  const grade=r.grade||'?';
+  const field=r.field||S.fieldLabel||'Engineering';
+  const name=r.name||S.name||'A student';
+  const text=`🎓 ${name} scored ${score}% (Grade ${grade}) on a ${field} mock national service interview on NS Interview Prep! 💪\n\nPractise yours at: https://ns-interview-prep.vercel.app`;
+  if(method==='whatsapp'){
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}','_blank'`);
+  }else{
+    navigator.clipboard?.writeText(text).then(()=>toast('Result copied to clipboard!','ok')).catch(()=>{
+      // Fallback
+      const ta=document.createElement('textarea');
+      ta.value=text;document.body.appendChild(ta);ta.select();
+      document.execCommand('copy');ta.remove();
+      toast('Result copied!','ok');
+    });
+  }
+}
+
+// ── Admin Tab Switcher ───────────────────────────────────────────────────────
+function switchAdminTab(tab){
+  ['users','questions','cq'].forEach(t=>{
+    const panel=$(`#adm-panel-${t}`);
+    const btn=$(`#adm-tab-${t}`);
+    if(panel)panel.classList.toggle('hidden',t!==tab);
+    if(btn)btn.classList.toggle('act',t===tab);
+  });
+}
+
+// ── Broadcast Message ────────────────────────────────────────────────────────
+function toggleBroadcastForm(){
+  const f=$('#broadcast-form');
+  if(f)f.classList.toggle('hidden');
+}
+async function sendBroadcast(){
+  const title=$('#bc-title')?.value.trim();
+  const body=$('#bc-body')?.value.trim();
+  const icon=$('#bc-icon')?.value||'📢';
+  if(!title||!body){toast('Fill in both title and message.','err');return;}
+  if(!S.user){toast('Not authenticated.','err');return;}
+  try{
+    // Store broadcast in Supabase so all students see it on their next dashboard load
+    const{error}=await sb.from('broadcasts').insert({
+      title,body,icon,created_by:S.user.id
+    });
+    if(error){
+      // Table may not exist yet — show instructions
+      toast('Run the SQL migration first (section 14 in schema.sql)','err');
+      return;
+    }
+    toast('Broadcast sent to all students!','ok');
+    toggleBroadcastForm();
+    $(`#bc-title`).value='';$(`#bc-body`).value='';
+  }catch(e){
+    toast('Error: '+e.message,'err');
+  }
+}
+
+// ── Load broadcast for student dashboard ─────────────────────────────────────
+async function loadBroadcast(){
+  if(!S.user)return;
+  try{
+    const{data}=await sb.from('broadcasts')
+      .select('*').order('created_at',{ascending:false}).limit(1);
+    if(!data?.length)return;
+    const bc=data[0];
+    // Show if less than 3 days old and not dismissed
+    const age=Date.now()-new Date(bc.created_at).getTime();
+    const dismissed=localStorage.getItem(`bc_dismissed_${bc.id}`);
+    if(age<3*86400000&&!dismissed){
+      const banner=$('#dash-banner');
+      const title=$('#dash-banner-title');
+      const body=$('#dash-banner-body');
+      const icon=$('#dash-banner-icon');
+      const closeBtn=banner?.querySelector('button');
+      if(banner&&title&&body&&icon){
+        icon.textContent=bc.icon||'📢';
+        title.textContent=bc.title;
+        body.textContent=bc.body;
+        banner.classList.remove('hidden');
+        // Override close to also dismiss permanently
+        if(closeBtn)closeBtn.onclick=()=>{
+          banner.classList.add('hidden');
+          localStorage.setItem(`bc_dismissed_${bc.id}`,'1');
+        };
+      }
+    }
+  }catch(e){/* broadcasts table may not exist yet */}
+}
+
+// ── Interview Timer start/stop wired to beginInterview/endInterview ──────────
+// Called from beginInterview — we patch it here rather than modifying the function
+const _origBeginInterview=window.beginInterview;
+
+// ── Mobile bottom nav active state ──────────────────────────────────────────
+function updateMobileNav(screen){
+  ['dash','setup','tests'].forEach(id=>{
+    const el=$(`#bnav-${id}`);
+    if(el)el.classList.toggle('act',screen===id||(id==='setup'&&screen==='interview'));
+  });
+}
+
+// ── Keyboard shortcuts ───────────────────────────────────────────────────────
+function initKeyboardShortcuts(){
+  document.addEventListener('keydown',e=>{
+    // Only active outside of input fields
+    if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return;
+    if(S.screen==='interview'){
+      // Space = toggle PTT
+      if(e.code==='Space'){e.preventDefault();handlePTTTap();}
+      // Escape = leave
+      if(e.code==='Escape')confirmLeave();
+    }
+    if(S.screen==='dash'){
+      // N = new interview
+      if(e.code==='KeyN'&&!e.ctrlKey&&!e.metaKey)showScreen('setup');
+    }
+  });
+}
+
+// ── Update loadDashboard to include streak + banner + grade ─────────────────
+const _origLoadDashboard=loadDashboard;
+loadDashboard=async function(){
+  await _origLoadDashboard();
+  renderStreak();
+  // Grade badge + banner (read from already-computed stats)
+  const avg=parseInt($('#ds-avg')?.textContent)||0;
+  const sess=parseInt($('#ds-sess')?.textContent)||0;
+  if(avg>0)renderDashGrade(avg);
+  showDashBanner(sess,avg||null);
+  updateMobileNav('dash');
+  loadBroadcast();
+};
+
+// ── Wire showScreen to update mobile nav ─────────────────────────────────────
+const _origShowScreen=showScreen;
+showScreen=function(n){
+  _origShowScreen(n);
+  updateMobileNav(n);
+  // Hide mobile bottom nav on interview/results/auth screens
+  const bnav=$('#mobile-bnav');
+  if(bnav)bnav.classList.toggle('hidden',['interview','results','auth'].includes(n));
+};
 
 // ===== EVENTS =====
 function initEvents(){
